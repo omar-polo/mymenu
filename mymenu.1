@@ -1,0 +1,93 @@
+.Dd $Mdocdate$
+.Dt MYMENU 1
+.Os
+.Sh NAME
+.Nm mymenu
+.Nd simple menu for XOrg
+.Sh DESCRIPTION
+The
+.Nm
+utility a simple graphical menu for XOrg. It read the items from
+.Ic stdin
+and print the user selection to
+.Ic stdout
+on exit.
+.Sh RESOURCES
+
+Most of the appearance of the menu is defined through the \fBX
+Resource Database\fR.
+
+Application specific resources:
+.Bl -tag -width Ds
+.It MyMenu.font
+The font name, only bitmap font are supported. By default is set to
+"fixed"
+.It MyMenu.width
+The width of the menu. If a numeric value is given (e.g. 400) is
+interpreted as pixel, if it ends with a percentage symbol `%'
+(e.g. 40%) the relative percentage will be computed (relative to the
+monitor width)
+.It MyMenu.height
+The height of the menu. Like MyMenu.width if a numeric value is given
+is interpreted as pixel, if it ends with a percentage symbol `%' the
+relative percentage will be computed (relative to the monitor height)
+.It MyMenu.x
+The X coordinate of the topmost left corner of the window. Much like
+MyMenu.height and MyMenu.width both a pixel dimension and percentage
+could be supplied. In addition to it, the special value "middle" could
+be used: in that case the window will be centered on the x axes.
+.It MyMenu.y
+The Y coordinate of the topmost left corner of the window. Like the X
+coordinate, pixel dimension, percentage dimension and the special
+value "middle" could be supplied.
+.It MyMenu.prompt.background
+The background of the prompt
+.It MyMenu.prompt.foreground
+The text color (foreground) of the prompt
+.It MyMenu.completion.background
+The background of the completions
+.It MyMenu.completion.foreground
+The text color of the completions
+.It MyMenu.completion_highlighted.background
+The background of the selected completion
+.It MyMenu.completion_highlighted.foreground
+The foreground of the selected completion
+.El
+
+.Sh KEYS
+.Bl -tag -width indent-two
+.It Esc
+Close the menu without selecting any entry
+.It Enter
+Close the menu and print to stdout what the user typed
+.It Tab
+Expand the prompt to the next possible completion
+.It Shift Tab
+Expand the prompt to the previous possible completion
+.It Backspace
+Delete the last character
+.El
+
+.Sh BUGS
+.Bl -bullet
+.It
+Shift tab is currently broken
+.It
+If, instead of a numeric value, a not-valid number that terminates
+with the % sign is supplied, then the default value for that field
+will be treated as a percentage. Since this is a misuse of the
+resources this behavior isn't strictly considered a bug.
+.El
+
+.Sh EXIT STATUS
+
+0 when the user select an entry, 1 when the user press Esc and
+EX_UNAVAILABLE if the connection to X fails.
+
+.Sh SEE ALSO
+.Xr dmenu 1
+.Xr sysexits 3
+
+.Sh AUTHORS
+.An Omar Polo <omar.polo@europecom.net>
+
