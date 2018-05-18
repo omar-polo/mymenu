@@ -312,17 +312,17 @@ void get_wh(Display *d, Window *w, int *width, int *height) {
 // to actually grab that goddam keyboard. Only one call to
 // XGrabKeyboard does not always end up with the keyboard grabbed!
 int take_keyboard(Display *d, Window w) {
-        int i;
-        for (i = 0; i < 1000; i++) {
-                if (XGrabKeyboard(d, w, True, GrabModeAsync, GrabModeAsync, CurrentTime) == GrabSuccess)
-                        return 1;
-                usleep(1000);
-        }
-        return 0;
+  int i;
+  for (i = 0; i < 100; i++) {
+    if (XGrabKeyboard(d, w, True, GrabModeAsync, GrabModeAsync, CurrentTime) == GrabSuccess)
+      return 1;
+    usleep(1000);
+  }
+  return 0;
 }
 
 void release_keyboard(Display *d) {
-        XUngrabKeyboard(d, CurrentTime);
+  XUngrabKeyboard(d, CurrentTime);
 }
 
 int parse_integer(const char *str, int default_value, int max) {
