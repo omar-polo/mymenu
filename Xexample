@@ -1,0 +1,15 @@
+MyMenu.font: -misc-tamsyn-medium-r-normal--15-108-100-100-c-80-iso8859-1
+
+MyMenu.width: 100%
+MyMenu.height: 30
+MyMenu.x: 0
+MyMenu.y: 0
+
+MyMenu.prompt.background: #222
+MyMenu.prompt.foreground: #eaeaea
+
+MyMenu.completion.background: #222
+MyMenu.completion.foreground: #eaeaea
+
+MyMenu.completion_highlighted.background: #eaeaea
+MyMenu.completion_highlighted.foreground: #222

@@ -16,7 +16,8 @@ This was the perfect excuse to learn how to make window with Xlib.
 
 ## How?
 
-Check out the [manpage](mymenu.1) for further documentation.
+Check out the [manpage](mymenu.1) for further documentation. Check out
+also the [template](Xexample) for the resources.
 
 ---
 
