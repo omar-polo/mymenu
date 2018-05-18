@@ -50,3 +50,25 @@ delete `-DUSE_XINERAMA` from the `CFLAGS` and `xinerama` from the
  - Alternate layout
    
    An alternate layout (similar to rofi) would be nice too
+
+## Scripts
+
+I'm using this script to launch MyMenu
+
+``` shell
+#!/bin/sh
+
+cat <<EOF | /bin/sh -c "$(mymenu "$@")"
+ZZZ
+sct 4500
+lock
+connect ethernet
+connect home
+connect phone
+zzz
+...
+EOF
+```
+
+Of course you can as well use the `dmenu_path` and `dmenu_run` scripts
+that (usually) comes with `dmenu`.
