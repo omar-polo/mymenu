@@ -31,12 +31,15 @@
 #include <X11/Xutil.h> // XLookupString
 #include <X11/Xresource.h>
 #include <X11/Xcms.h>  // colors
+#include <X11/keysym.h>
 
 #ifdef USE_XINERAMA
 # include <X11/extensions/Xinerama.h>
 #endif
 
 #define nil NULL
+#define resname "MyMenu"
+#define resclass "mymenu"
 
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -78,7 +81,7 @@ struct rendering {
   GC completion_highlighted_bg;
   int width;
   int height;
-  XFontStruct *font;
+  XFontSet *font;
 };
 
 struct completions {
@@ -101,6 +104,61 @@ struct completions *compl_new() {
 
 void compl_delete(struct completions *c) {
   free(c);
+}
+
+struct completions *compl_select_next(struct completions *c, bool n) {
+  if (c == nil)
+    return nil;
+  if (n) {
+    c->selected = true;
+    return c;
+  }
+
+  struct completions *orig = c;
+  while (c != nil) {
+    if (c->selected) {
+      c->selected = false;
+      if (c->next != nil) {
+        // the current one is selected and the next one exists
+        c->next->selected = true;
+        return c->next;
+      } else {
+        // the current one is selected and the next one is nill,
+        // select the first one
+        orig->selected = true;
+        return orig;
+      }
+    }
+    c = c->next;
+  }
+  return nil;
+}
+
+struct completions *compl_select_prev(struct completions *c, bool n) {
+  if (c == nil)
+    return nil;
+
+  struct completions *cc = c;
+
+  if (n) // select the last one
+    while (cc != nil) {
+      if (cc->next == nil) {
+        cc->selected = true;
+        return cc;
+      }
+      cc = cc->next;
+    }
+  else // select the previous one
+    while (cc != nil) {
+      if (cc->next != nil && cc->next->selected) {
+        cc->next->selected = false;
+        cc->selected = true;
+        return cc;
+      }
+      cc = cc->next;
+    }
+  
+  return nil;
 }
 
 struct completions *filter(char *text, char **lines) {
@@ -145,9 +203,30 @@ int pushc(char **p, int maxlen, char c) {
   return maxlen;
 }
 
+int utf8strnlen(char *s, int maxlen) {
+  int len = 0;
+  while (*s && maxlen > 0) {
+    len += (*s++ & 0xc0) != 0x80;
+    maxlen--;
+  }
+  return len;
+}
+
+// remove the last *glyph* from the *utf8* string!
+// this is different from just setting the last byte to 0 (in some
+// cases ofc). The actual implementation is quite inefficient because
+// it remove the last char until the number of glyphs doesn't change
 void popc(char *p, int maxlen) {
   int len = strnlen(p, maxlen);
-  p[len-1] = '\0';
+
+  if (len == 0)
+    return;
+
+  int ulen = utf8strnlen(p, maxlen);
+  while (len > 0 && utf8strnlen(p, maxlen) == ulen) {
+    len--;
+    p[len] = 0;
+  }
 }
 
 // read an arbitrary long line from stdin and return a pointer to it
@@ -205,19 +284,24 @@ int readlines (char **lines) {
 // | 20 char text     | completion | completion | completion | compl |
 // |------------------|----------------------------------------------|
 void draw(struct rendering *r, char *text, struct completions *cs) {
-  int texty = (r->height + r->font->ascent) >> 1;
-
   // TODO: make these dynamic?
   int prompt_width = 20; // char
   int padding = 10;
-  int start_at = XTextWidth(r->font, " ", 1) * prompt_width + padding;
+  /* int start_at = XTextWidth(r->font, " ", 1) * prompt_width + padding; */
+
+  XRectangle rect;
+  int start_at = XmbTextExtents(*r->font, " ", 1, nil, &rect);
+  start_at = start_at * prompt_width + padding;
+
+  int texty = (rect.height + r->height) >>1;
 
   XFillRectangle(r->d, r->w, r->prompt_bg, 0, 0, start_at, r->height);
 
   int text_len = strlen(text);
   if (text_len > prompt_width)
     text = text + (text_len - prompt_width);
-  XDrawString(r->d, r->w, r->prompt, padding, texty, text, MIN(text_len, prompt_width));
+  /* XDrawString(r->d, r->w, r->prompt, padding, texty, text, MIN(text_len, prompt_width)); */
+  Xutf8DrawString(r->d, r->w, *r->font, r->prompt, padding, texty, text, MIN(text_len, prompt_width));
 
   XFillRectangle(r->d, r->w, r->completion_bg, start_at, 0, r->width, r->height);
 
@@ -226,10 +310,13 @@ void draw(struct rendering *r, char *text, struct completions *cs) {
     GC h = cs->selected ? r->completion_highlighted_bg : r->completion_bg;
 
     int len = strlen(cs->completion);
-    int text_width = XTextWidth(r->font, cs->completion, len);
+    /* int text_width = XTextWidth(r->font, cs->completion, len); */
+    int text_width = XmbTextExtents(*r->font, cs->completion, len, nil, nil);
 
     XFillRectangle(r->d, r->w, h, start_at, 0, text_width + padding*2, r->height);
-    XDrawString(r->d, r->w, g, start_at + padding, texty, cs->completion, len);
+
+    /*  XDrawString(r->d, r->w,           g, start_at + padding, texty, cs->completion, len); */
+    Xutf8DrawString(r->d, r->w, *r->font, g, start_at + padding, texty, cs->completion, len);
 
     start_at += text_width + padding * 2;
 
@@ -434,8 +521,9 @@ int main() {
   // read resource
   XrmInitialize();
   char *xrm = XResourceManagerString(d);
+  XrmDatabase xdb = nil;
   if (xrm != nil) {
-    XrmDatabase xdb = XrmGetStringDatabase(xrm);
+    xdb = XrmGetStringDatabase(xrm);
     XrmValue value;
     char *datatype[20];
 
@@ -512,10 +600,18 @@ int main() {
   }
 
   // load the font
-  XFontStruct *font = XLoadQueryFont(d, fontname);
+  /* XFontStruct *font = XLoadQueryFont(d, fontname); */
+  /* if (font == nil) { */
+  /*   fprintf(stderr, "Unable to load %s font\n", fontname); */
+  /*   font = XLoadQueryFont(d, "fixed"); */
+  /* } */
+  // load the font
+  char **missing_charset_list;
+  int missing_charset_count;
+  XFontSet font = XCreateFontSet(d, fontname, &missing_charset_list, &missing_charset_count, nil);
   if (font == nil) {
-    fprintf(stderr, "Unable to load %s font\n", fontname);
-    font = XLoadQueryFont(d, "fixed");
+    fprintf(stderr, "Unable to load the font(s) %s\n", fontname);
+    return EX_UNAVAILABLE;
   }
 
   // create the window
@@ -556,20 +652,26 @@ int main() {
 
   // Create some graphics contexts
   XGCValues values;
-  values.font = font->fid;
+  /* values.font = font->fid; */
 
   struct rendering r = {
     .d                          = d,
     .w                          = w,
-    .prompt                     = XCreateGC(d, w, GCFont, &values),
-    .prompt_bg                  = XCreateGC(d, w, GCFont, &values),
-    .completion                 = XCreateGC(d, w, GCFont, &values),
-    .completion_bg              = XCreateGC(d, w, GCFont, &values),
-    .completion_highlighted     = XCreateGC(d, w, GCFont, &values),
-    .completion_highlighted_bg  = XCreateGC(d, w, GCFont, &values),
+    .prompt                     = XCreateGC(d, w, 0, &values),
+    .prompt_bg                  = XCreateGC(d, w, 0, &values),
+    .completion                 = XCreateGC(d, w, 0, &values),
+    .completion_bg              = XCreateGC(d, w, 0, &values),
+    .completion_highlighted     = XCreateGC(d, w, 0, &values),
+    .completion_highlighted_bg  = XCreateGC(d, w, 0, &values),
+    /* .prompt                     = XCreateGC(d, w, GCFont, &values), */
+    /* .prompt_bg                  = XCreateGC(d, w, GCFont, &values), */
+    /* .completion                 = XCreateGC(d, w, GCFont, &values), */
+    /* .completion_bg              = XCreateGC(d, w, GCFont, &values), */
+    /* .completion_highlighted     = XCreateGC(d, w, GCFont, &values), */
+    /* .completion_highlighted_bg  = XCreateGC(d, w, GCFont, &values), */
     .width                      = width,
     .height                     = height,
-    .font                       = font
+    .font                       = &font
   };
 
   // load the colors in our GCs
@@ -580,6 +682,33 @@ int main() {
   XSetForeground(d, r.completion_highlighted, compl_highlighted_fg.pixel);
   XSetForeground(d, r.completion_highlighted_bg, compl_highlighted_bg.pixel);
 
+  // open the X input method
+  XIM xim = XOpenIM(d, xdb, resname, resclass);
+  check_allocation(xim);
+
+  XIMStyles *xis = nil;
+  if (XGetIMValues(xim, XNQueryInputStyle, &xis, NULL) || !xis) {
+    fprintf(stderr, "Input Styles could not be retrieved\n");
+    return EX_UNAVAILABLE;
+  }
+
+  XIMStyle bestMatchStyle = 0;
+  for (int i = 0; i < xis->count_styles; ++i) {
+    XIMStyle ts = xis->supported_styles[i];
+    if (ts == (XIMPreeditNothing | XIMStatusNothing)) {
+      bestMatchStyle = ts;
+      break;
+    }
+  }
+  XFree(xis);
+
+  if (!bestMatchStyle) {
+    fprintf(stderr, "No matching input style could be determined\n");
+  }
+
+  XIC xic = XCreateIC(xim, XNInputStyle, bestMatchStyle, XNClientWindow, w, XNFocusWindow, w, NULL);
+  check_allocation(xic);
+
   // draw the window for the first time
   draw(&r, text, cs);
 
@@ -588,6 +717,9 @@ int main() {
     XEvent e;
     XNextEvent(d, &e);
 
+    if (XFilterEvent(&e, w))
+      continue;
+
     switch (e.type) {
     case KeymapNotify:
       XRefreshKeyboardMapping(&e.xmapping);
@@ -595,139 +727,119 @@ int main() {
 
     case KeyRelease: break; // ignore this
 
-    case KeyPress:
-      switch (e.xkey.keycode) {
-      case 0x024: // enter
-        status = OK;
-        break;
+    case KeyPress: {
+      XKeyPressedEvent *ev = (XKeyPressedEvent*)&e;
 
-      case 0x09: // esc
-        status = ERR;
-        break;
-
-      case 0x017: { // tab
-        // TODO: re-organize this mess of code.
-        // FIXME: shift detection does not work!
-        if ((e.xkey.state | ShiftMask) == 0) { // shift?
-          fprintf(stderr, "SHIFT\n");
-          if (nothing_selected || (cs != nil && cs->selected)) { // select the last one
-            if (cs != nil && cs->selected)
-              cs->selected = false;
-
-            struct completions *cc = cs;
-            while (cc != nil) {
-              if (cc->next == nil) {
-                cc->selected = true;
-                free(text);
-                text = strdup(cc->completion);
-                if (text == nil) {
-                  fprintf(stderr, "Memory allocation error!");
-                  status = ERR;
-                  break;
-                }
-                textlen = strlen(text);
-                break;
-              }
-              cc = cc->next;
-            }
-            nothing_selected = false;
-          } else {
-            puts("select the the previous one");
-            struct completions *cc = cs;
-            while (cc != nil) {
-              if (cc->next != nil && cc->next->selected) {
-                cc->selected = true;
-                cc->next->selected = false;
-                free(text);
-                text = strdup(cc->next->completion);
-                if (text == nil) {
-                  fprintf(stderr, "Memory allocation error!");
-                  status = ERR;
-                  break;
-                }
-                textlen = strlen(text);
-                break;
-              }
-              cc = cc ->next;
-            }
-          }
-        } else {
-          fprintf(stderr, "no SHIFT\n");
-          if (nothing_selected) {
-            if (cs != nil) {
-              cs->selected = true;
-              nothing_selected = false;
-              free(text);
-              text = strdup(cs->completion);
-              if (text == nil) {
-                fprintf(stderr, "Memory allocation error!");
-                status = ERR;
-                break;
-              }
-              textlen = strlen(text);
-            }
-          } else {
-            struct completions *cc = cs;
-            while (cc != nil) {
-              if (cc->selected) {
-                struct completions *n = cc->next != nil ? cc->next : cs;
-
-                cc->selected = false;
-                n->selected = true;
-
-                free(text);
-                text = strdup(n->completion);
-                if (text == nil) {
-                  fprintf(stderr, "Memory allocation error!");
-                  status = ERR;
-                  break;
-                }
-                textlen = strlen(text);
-                break;
-              }
-              cc = cc->next;
-            }
-          }
-        }
-
-        draw(&r, text, cs);
-        break;
-      }
-
-      case 0x16: // backspace
-        nothing_selected = true;
-        popc(text, textlen);
-
-        update_completions(cs, text, lines);
-
-        draw(&r, text, cs);
-        break;
-
-      default: {
-        char string[255] = {0};
-        KeySym keysym;
-        int len = XLookupString(&e.xkey, string, 25, &keysym, nil);
-        if (len > 0 && (isalnum(string[0]) || string[0] == ' ' || string[0] == '-')) {
-          textlen = pushc(&text, textlen, string[0]);
-
-          if (textlen == -1) { // uh oh
-            fprintf(stderr, "Memory allocation error!");
+      if (ev->keycode == XKeysymToKeycode(d, XK_Tab)) {
+        bool shift = (ev->state & ShiftMask);
+        struct completions *n = shift ? compl_select_prev(cs, nothing_selected)
+                                      : compl_select_next(cs, nothing_selected);
+        if (n != nil) {
+          nothing_selected = false;
+          free(text);
+          text = strdup(n->completion);
+          if (text == nil) {
+            fprintf(stderr, "Memory allocation error!\n");
             status = ERR;
             break;
           }
-
-          nothing_selected = true;
-          update_completions(cs, text, lines);
+          textlen = strlen(text);
         }
+        draw(&r, text, cs);
         break;
       }
-      } // keypress
 
+      if (ev->keycode == XKeysymToKeycode(d, XK_BackSpace)) {
+        nothing_selected = true;
+        popc(text, textlen);
+        update_completions(cs, text, lines);
+        draw(&r, text, cs);
+        break;
+      }
+
+      if (ev->keycode == XKeysymToKeycode(d, XK_Return)) {
+        status = OK;
+        break;
+      }
+
+      if (ev->keycode == XKeysymToKeycode(d, XK_Escape)) {
+        status = ERR;
+        break;
+      }
+
+      // try to read what the user pressed
+      int symbol = 0;
+      Status s = 0;
+      Xutf8LookupString(xic, ev, (char*)&symbol, 4, 0, &s);
+
+      if (s == XBufferOverflow) {
+        // should not happen since there are no utf-8 characters
+        // larger than 24bits, but is something to be aware of when
+        // used to directly write to a string buffer
+        fprintf(stderr, "Buffer overflow when trying to create keyboard symbol map.\n");
+        break;
+      }
+      char *str = (char*)&symbol;
+
+      if (ev->state & ControlMask) {
+        // check for some key bindings
+        if (!strcmp(str, "")) { // C-u
+          nothing_selected = true;
+          for (int i = 0; i < textlen; ++i)
+            text[i] = 0;
+          update_completions(cs, text, lines);
+        }
+        if (!strcmp(str, "")) { // C-h
+          nothing_selected = true;
+          popc(text, textlen);
+          update_completions(cs, text, lines);
+        }
+        if (!strcmp(str, "")) { // C-w
+          nothing_selected = true;
+
+          // `textlen` is the length of the allocated string, not the
+          // length of the ACTUAL string
+          int p = strlen(text) - 1;
+          if (p >= 0) { // delete the current char
+            text[p] = 0;
+            p--;
+          }
+          while (p >= 0 && isalnum(text[p])) {
+            text[p] = 0;
+            p--;
+          }
+          // erase also trailing white space
+          while (p >= 0 && isspace(text[p])) {
+            text[p] = 0;
+            p--;
+          }
+          update_completions(cs, text, lines);
+        }
+        if (!strcmp(str, "\r")) { // C-m
+          status = OK;
+        }
+        draw(&r, text, cs);
+        break;
+      }
+
+      int str_len = strlen(str);
+      for (int i = 0; i < str_len; ++i) {
+        textlen = pushc(&text, textlen, str[i]);
+        if (textlen == -1) {
+          fprintf(stderr, "Memory allocation error\n");
+          status = ERR;
+          break;
+        }
+        nothing_selected = true;
+        update_completions(cs, text, lines);
+      }
+
+    }
       draw(&r, text, cs);
       break;
 
     default:
-      fprintf(stderr, "unknown event %d\n", e.type);
+      fprintf(stderr, "Unknown event %d\n", e.type);
     }
   }
 

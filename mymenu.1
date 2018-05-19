@@ -60,18 +60,24 @@ The foreground of the selected completion
 Close the menu without selecting any entry
 .It Enter
 Close the menu and print to stdout what the user typed
+.It C-m
+The same as Enter
 .It Tab
 Expand the prompt to the next possible completion
 .It Shift Tab
 Expand the prompt to the previous possible completion
 .It Backspace
 Delete the last character
+.It C-h
+The same as Backspace
+.It C-w
+Delete the last word
+.It C-u
+Delete the whole line
 .El
 
 .Sh BUGS
 .Bl -bullet
-.It
-Shift tab is currently broken
 .It
 If, instead of a numeric value, a not-valid number that terminates
 with the % sign is supplied, then the default value for that field
