@@ -326,6 +326,9 @@ void draw_horizontally(struct rendering *r, char *text, struct completions *cs) 
 
     start_at += text_width + padding * 2;
 
+    if (start_at > r->width)
+      break; // don't draw completion if the space isn't enough
+
     cs = cs->next;
   }
 
@@ -363,6 +366,10 @@ void draw_vertically(struct rendering *r, char *text, struct completions *cs) {
     Xutf8DrawString(r->d, r->w, *r->font, g, padding, start_at + padding*2, cs->completion, len);
 
     start_at += rect.height + padding *2;
+
+    if (start_at > r->height)
+      break; // don't draw completion if the space isn't enough
+
     cs = cs->next;
   }
 
