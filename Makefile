@@ -12,7 +12,7 @@ mymenu: mymenu.c
 	$(CC) $(CFLAGS) mymenu.c -o mymenu $(LIBS)
 
 clean:
-	rm mymenu
+	rm -f mymenu
 
 install: mymenu
 	cp mymenu ~/bin
