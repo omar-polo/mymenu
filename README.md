@@ -4,6 +4,8 @@
 
 ![MyMenu works!](screen.png)
 
+![MyMenu alternate layout](screen-alt.png)
+
 ---
 
 ## What?
@@ -47,10 +49,6 @@ delete `-DUSE_XINERAMA` from the `CFLAGS` and `xinerama` from the
  - Optional TrueType support
  
  - Opacity support
- 
- - Alternate layout
-   
-   An alternate layout (similar to rofi) would be nice too
 
 ## Scripts
 

@@ -82,6 +82,7 @@ struct rendering {
   int width;
   int height;
   XFontSet *font;
+  bool horizontal_layout;
 };
 
 struct completions {
@@ -283,7 +284,7 @@ int readlines (char **lines) {
 // |------------------|----------------------------------------------|
 // | 20 char text     | completion | completion | completion | compl |
 // |------------------|----------------------------------------------|
-void draw(struct rendering *r, char *text, struct completions *cs) {
+void draw_horizontally(struct rendering *r, char *text, struct completions *cs) {
   // TODO: make these dynamic?
   int prompt_width = 20; // char
   int padding = 10;
@@ -324,6 +325,50 @@ void draw(struct rendering *r, char *text, struct completions *cs) {
   }
 
   XFlush(r->d);
+}
+
+// |-----------------------------------------------------------------|
+// |  prompt                                                         |
+// |-----------------------------------------------------------------|
+// |  completion                                                     |
+// |-----------------------------------------------------------------|
+// |  completion                                                     |
+// |-----------------------------------------------------------------|
+// TODO: dunno why but in the call to Xutf8DrawString, by logic,
+// should be padding and not padding*2, but the text doesn't seem to
+// be vertically centered otherwise....
+void draw_vertically(struct rendering *r, char *text, struct completions *cs) {
+  int padding = 10; // TODO make this dynamic
+
+  XRectangle rect;
+  XmbTextExtents(*r->font, "fjpgl", 5, &rect, nil);
+  int start_at = rect.height + padding*2;
+
+  XFillRectangle(r->d, r->w, r->completion_bg, 0, 0, r->width, r->height);
+  XFillRectangle(r->d, r->w, r->prompt_bg, 0, 0, r->width, start_at);
+  Xutf8DrawString(r->d, r->w, *r->font, r->prompt, padding, padding*2, text, strlen(text));
+
+  while (cs != nil) {
+    GC g = cs->selected ? r->completion_highlighted    : r->completion;
+    GC h = cs->selected ? r->completion_highlighted_bg : r->completion_bg;
+
+    int len = strlen(cs->completion);
+    XmbTextExtents(*r->font, cs->completion, len, &rect, nil);
+    XFillRectangle(r->d, r->w, h, 0, start_at, r->width, rect.height + padding*2);
+    Xutf8DrawString(r->d, r->w, *r->font, g, padding, start_at + padding*2, cs->completion, len);
+
+    start_at += rect.height + padding *2;
+    cs = cs->next;
+  }
+
+  XFlush(r->d);
+}
+
+void draw(struct rendering *r, char *text, struct completions *cs) {
+  if (r->horizontal_layout)
+    draw_horizontally(r, text, cs);
+  else
+    draw_vertically(r, text, cs);
 }
 
 /* Set some WM stuff */
@@ -518,6 +563,8 @@ int main() {
     compl_fg, compl_bg,
     compl_highlighted_fg, compl_highlighted_bg;
 
+  bool horizontal_layout = true;
+
   // read resource
   XrmInitialize();
   char *xrm = XResourceManagerString(d);
@@ -533,6 +580,15 @@ int main() {
     }
     else
       fprintf(stderr, "no font defined, using %s\n", fontname);
+
+    if (XrmGetResource(xdb, "MyMenu.layout", "*", datatype, &value) == true) {
+      char *v = strdup(value.addr);
+      check_allocation(v);
+      horizontal_layout = !strcmp(v, "horizontal");
+      free(v);
+    }
+    else
+      fprintf(stderr, "no layout defined, using horizontal\n");
 
     if (XrmGetResource(xdb, "MyMenu.width", "*", datatype, &value) == true)
       width = parse_integer(value.addr, width, d_width);
@@ -671,7 +727,8 @@ int main() {
     /* .completion_highlighted_bg  = XCreateGC(d, w, GCFont, &values), */
     .width                      = width,
     .height                     = height,
-    .font                       = &font
+    .font                       = &font,
+    .horizontal_layout          = horizontal_layout
   };
 
   // load the colors in our GCs

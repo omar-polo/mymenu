@@ -22,6 +22,12 @@ Application specific resources:
 .It MyMenu.font
 The font name, only bitmap font are supported. By default is set to
 "fixed"
+.It MyMenu.layout
+The layout of the menu. The possible values are "horizontal" and
+"vertical", with the default being "horizontal". Every other value
+than "horizontal" is treated like "vertical", but this is kinda an
+implementation detail and not something to be relied on, since in the
+future other layout could be added as well
 .It MyMenu.width
 The width of the menu. If a numeric value is given (e.g. 400) is
 interpreted as pixel, if it ends with a percentage symbol `%'
