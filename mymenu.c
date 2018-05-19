@@ -52,7 +52,7 @@
   }
 
 // TODO: dynamic?
-#define MAX_ITEMS 256
+#define INITIAL_ITEMS 64
 
 #define TODO(s) {                               \
     fprintf(stderr, "TODO! " s "\n");           \
@@ -257,10 +257,11 @@ char *readline(bool *eof) {
   return str;
 }
 
-int readlines (char **lines) {
+int readlines (char ***lns, int items) {
   bool finished = false;
   int n = 0;
-  while (n < MAX_ITEMS) {
+  char **lines = *lns;
+  while (true) {
     lines[n] = readline(&finished);
 
     if (strlen(lines[n]) == 0 || lines[n][0] == '\n')
@@ -270,15 +271,19 @@ int readlines (char **lines) {
       break;
 
     ++n;
+
+    if (n == items - 1) {
+      items += items >>1;
+      char **l = realloc(lines, sizeof(char*) * items);
+      check_allocation(l);
+      *lns = l;
+      lines = l;
+    }
   }
-  /* for (n = 0; n < MAX_ITEMS -1; ++n) { */
-  /*   lines[n] = readline(&finished); */
-  /*   if (finished) */
-  /*     break; */
-  /* } */
+
   n++;
   lines[n] = nil;
-  return n;
+  return items;
 }
 
 // |------------------|----------------------------------------------|
@@ -491,8 +496,9 @@ int parse_int_with_middle(const char *str, int default_value, int max, int self)
 }
 
 int main() {
-  char *lines[MAX_ITEMS] = {0};
-  readlines(lines);
+  /* char *lines[INITIAL_ITEMS] = {0}; */
+  char **lines = calloc(INITIAL_ITEMS, sizeof(char*));
+  readlines(&lines, INITIAL_ITEMS);
 
   setlocale(LC_ALL, getenv("LANG"));
 
@@ -907,6 +913,7 @@ int main() {
 
   free(fontname);
   free(text);
+  free(lines);
   compl_delete(cs);
 
   /* XDestroyWindow(d, w); */
