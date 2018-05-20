@@ -264,8 +264,10 @@ int readlines (char ***lns, int items) {
   while (true) {
     lines[n] = readline(&finished);
 
-    if (strlen(lines[n]) == 0 || lines[n][0] == '\n')
+    if (strlen(lines[n]) == 0 || lines[n][0] == '\n') {
+      free(lines[n]);
       --n; // forget about this line
+    }
 
     if (finished)
       break;
@@ -505,7 +507,7 @@ int parse_int_with_middle(const char *str, int default_value, int max, int self)
 int main() {
   /* char *lines[INITIAL_ITEMS] = {0}; */
   char **lines = calloc(INITIAL_ITEMS, sizeof(char*));
-  readlines(&lines, INITIAL_ITEMS);
+  int nlines = readlines(&lines, INITIAL_ITEMS);
 
   setlocale(LC_ALL, getenv("LANG"));
 
@@ -917,6 +919,10 @@ int main() {
 
   if (status == OK)
     printf("%s\n", text);
+
+  for (int i = 0; i < nlines; ++i) {
+    free(lines[i]);
+  }
 
   free(fontname);
   free(text);
