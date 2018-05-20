@@ -83,6 +83,8 @@ struct rendering {
   int height;
   XFontSet *font;
   bool horizontal_layout;
+  char *ps1;
+  int ps1len;
 };
 
 struct completions {
@@ -230,6 +232,39 @@ void popc(char *p, int maxlen) {
   }
 }
 
+// If the string is surrounded by quotes (`"`) remove them and replace
+// every `\"` in the string with `"`
+char *normalize_str(const char *str) {
+  int len = strlen(str);
+  if (len == 0)
+    return nil;
+
+  char *s = calloc(len, sizeof(char));
+  check_allocation(s);
+  int p = 0;
+  while (*str) {
+    char c = *str;
+    if (*str == '\\') {
+      if (*(str + 1)) {
+        s[p] = *(str + 1);
+        p++;
+        str += 2; // skip this and the next char
+        continue;
+      } else {
+        break;
+      }
+    }
+    if (c == '"') {
+      str++; // skip only this char
+      continue;
+    }
+    s[p] = c;
+    p++;
+    str++;
+  }
+  return s;
+}
+
 // read an arbitrary long line from stdin and return a pointer to it
 // TODO: resize the allocated memory to exactly fit the string once
 // read?
@@ -298,7 +333,10 @@ void draw_horizontally(struct rendering *r, char *text, struct completions *cs) 
   /* int start_at = XTextWidth(r->font, " ", 1) * prompt_width + padding; */
 
   XRectangle rect;
-  int start_at = XmbTextExtents(*r->font, " ", 1, nil, &rect);
+  int ps1xlen = XmbTextExtents(*r->font, r->ps1, r->ps1len, nil, &rect);
+  int start_at = ps1xlen;
+
+  start_at += XmbTextExtents(*r->font, " ", 1, nil, &rect);
   start_at = start_at * prompt_width + padding;
 
   int texty = (rect.height + r->height) >>1;
@@ -309,7 +347,8 @@ void draw_horizontally(struct rendering *r, char *text, struct completions *cs) 
   if (text_len > prompt_width)
     text = text + (text_len - prompt_width);
   /* XDrawString(r->d, r->w, r->prompt, padding, texty, text, MIN(text_len, prompt_width)); */
-  Xutf8DrawString(r->d, r->w, *r->font, r->prompt, padding, texty, text, MIN(text_len, prompt_width));
+  Xutf8DrawString(r->d, r->w, *r->font, r->prompt, padding, texty, r->ps1, r->ps1len);
+  Xutf8DrawString(r->d, r->w, *r->font, r->prompt, padding + ps1xlen, texty, text, MIN(text_len, prompt_width));
 
   XFillRectangle(r->d, r->w, r->completion_bg, start_at, 0, r->width, r->height);
 
@@ -356,7 +395,9 @@ void draw_vertically(struct rendering *r, char *text, struct completions *cs) {
 
   XFillRectangle(r->d, r->w, r->completion_bg, 0, 0, r->width, r->height);
   XFillRectangle(r->d, r->w, r->prompt_bg, 0, 0, r->width, start_at);
-  Xutf8DrawString(r->d, r->w, *r->font, r->prompt, padding, padding*2, text, strlen(text));
+  int ps1xlen = XmbTextExtents(*r->font, r->ps1, r->ps1len, nil, nil);
+  Xutf8DrawString(r->d, r->w, *r->font, r->prompt, padding, padding*2, r->ps1, r->ps1len);
+  Xutf8DrawString(r->d, r->w, *r->font, r->prompt, padding + ps1xlen, padding*2, text, strlen(text));
 
   while (cs != nil) {
     GC g = cs->selected ? r->completion_highlighted    : r->completion;
@@ -525,6 +566,9 @@ int main() {
   int x = 0;
   int y = 0;
 
+  char *ps1 = strdup("$ ");
+  check_allocation(ps1);
+
   char *fontname = strdup("fixed");
   check_allocation(fontname);
 
@@ -604,6 +648,12 @@ int main() {
     }
     else
       fprintf(stderr, "no layout defined, using horizontal\n");
+
+    if (XrmGetResource(xdb, "MyMenu.prompt", "*", datatype, &value) == true) {
+      free(ps1);
+      ps1 = normalize_str(value.addr);
+    } else
+      fprintf(stderr, "no prompt defined, using \"%s\" as default\n", ps1);
 
     if (XrmGetResource(xdb, "MyMenu.width", "*", datatype, &value) == true)
       width = parse_integer(value.addr, width, d_width);
@@ -743,7 +793,9 @@ int main() {
     .width                      = width,
     .height                     = height,
     .font                       = &font,
-    .horizontal_layout          = horizontal_layout
+    .horizontal_layout          = horizontal_layout,
+    .ps1                        = ps1,
+    .ps1len                     = strlen(ps1)
   };
 
   // load the colors in our GCs
@@ -924,12 +976,13 @@ int main() {
     free(lines[i]);
   }
 
+  free(ps1);
   free(fontname);
   free(text);
   free(lines);
   compl_delete(cs);
 
-  /* XDestroyWindow(d, w); */
+  XDestroyWindow(d, w);
   XCloseDisplay(d);
 
   return status == OK ? 0 : 1;

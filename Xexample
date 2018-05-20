@@ -1,5 +1,6 @@
-MyMenu.font: -misc-tamsyn-medium-r-normal--15-108-100-100-c-80-iso8859-1
+MyMenu.font: fixed
 MyMenu.layout: horizontal
+MyMenu.prompt: "$ "
 
 MyMenu.width: 100%
 MyMenu.height: 30

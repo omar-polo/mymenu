@@ -27,16 +27,18 @@ The layout of the menu. The possible values are "horizontal" and
 "vertical", with the default being "horizontal". Every other value
 than "horizontal" is treated like "vertical", but this is kinda an
 implementation detail and not something to be relied on, since in the
-future other layout could be added as well
+future other layout could be added as well.
+.It Mymenu.prompt
+A string that is rendered before the user input. Default to "$ ".
 .It MyMenu.width
 The width of the menu. If a numeric value is given (e.g. 400) is
 interpreted as pixel, if it ends with a percentage symbol `%'
 (e.g. 40%) the relative percentage will be computed (relative to the
-monitor width)
+monitor width).
 .It MyMenu.height
 The height of the menu. Like MyMenu.width if a numeric value is given
 is interpreted as pixel, if it ends with a percentage symbol `%' the
-relative percentage will be computed (relative to the monitor height)
+relative percentage will be computed (relative to the monitor height).
 .It MyMenu.x
 The X coordinate of the topmost left corner of the window. Much like
 MyMenu.height and MyMenu.width both a pixel dimension and percentage
@@ -47,17 +49,17 @@ The Y coordinate of the topmost left corner of the window. Like the X
 coordinate, pixel dimension, percentage dimension and the special
 value "middle" could be supplied.
 .It MyMenu.prompt.background
-The background of the prompt
+The background of the prompt.
 .It MyMenu.prompt.foreground
-The text color (foreground) of the prompt
+The text color (foreground) of the prompt.
 .It MyMenu.completion.background
-The background of the completions
+The background of the completions.
 .It MyMenu.completion.foreground
-The text color of the completions
+The text color of the completions.
 .It MyMenu.completion_highlighted.background
-The background of the selected completion
+The background of the selected completion.
 .It MyMenu.completion_highlighted.foreground
-The foreground of the selected completion
+The foreground of the selected completion.
 .El
 
 .Sh KEYS
