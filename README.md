@@ -1,6 +1,6 @@
 # MyMenu
 
-> A drop-in replacement for dmenu, 'cause I was bored
+> A replacement for dmenu, 'cause I was bored
 
 ![MyMenu works!](screen.png)
 
@@ -10,7 +10,7 @@
 
 ## What?
 
-This is a drop-in replacement for `dmenu(1)`.
+This is a replacement for `dmenu(1)`.
 
 ## Why?
 
