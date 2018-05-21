@@ -45,17 +45,14 @@
 #define resname "MyMenu"
 #define resclass "mymenu"
 
-#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define OVERLAP(a,b,c,d) (((a)==(c) && (b)==(d)) || MIN((a)+(b), (c)+(d)) - MAX((a), (c)) > 0)
-#define INTERSECT(x,y,w,h,x1,y1,w1,h1) (OVERLAP((x),(w),(x1),(w1)) && OVERLAP((y),(h),(y1),(h1)))
 
 #define update_completions(cs, text, lines) {   \
     compl_delete(cs);                           \
     cs = filter(text, lines);                   \
   }
 
-// TODO: dynamic?
 #define INITIAL_ITEMS 64
 
 #define TODO(s) {                               \
@@ -174,7 +171,7 @@ struct completions *compl_select_prev(struct completions *c, bool n) {
       }
       cc = cc->next;
     }
-  
+
   return nil;
 }
 
@@ -665,28 +662,44 @@ int main() {
   int d_height = xwa.height;
 
 #ifdef USE_XINERAMA
-  // TODO: this bit still needs to be improved
   if (XineramaIsActive(d)) {
+    // find the mice
+    int number_of_screens = XScreenCount(d);
+    bool result;
+    Window r;
+    Window root;
+    int root_x, root_y, win_x, win_y;
+    unsigned int mask;
+    bool res;
+    for (int i = 0; i < number_of_screens; ++i) {
+      root = XRootWindow(d, i);
+      res = XQueryPointer(d, root, &r, &r, &root_x, &root_y, &win_x, &win_y, &mask);
+      if (res) break;
+    }
+    if (!res) {
+      fprintf(stderr, "No mouse found.\n");
+      root_x = 0;
+      root_y = 0;
+    }
+
+    // now find in which monitor the mice is on
     int monitors;
     XineramaScreenInfo *info = XineramaQueryScreens(d, &monitors);
-    if (info)
+    if (info) {
       for (int i = 0; i < monitors; ++i) {
-        if (INTERSECT(x, y, 1, 1, info[i].x_org, info[i].y_org, info[i].width, info[i].height)) {
-          offset_x = info[x].x_org;
-          offset_y = info[y].y_org;
+        if (info[i].x_org <= root_x && root_x <= (info[i].x_org + info[i].width)
+            && info[i].y_org <= root_y && root_y <= (info[i].y_org + info[i].height)) {
+          offset_x = info[i].x_org;
+          offset_y = info[i].y_org;
           d_width = info[i].width;
           d_height = info[i].height;
+          break;
         }
       }
+    }
     XFree(info);
   }
 #endif
-
-  /* fprintf(stderr, "offset_x:\t%d\n" */
-  /*                 "offset_y:\t%d\n" */
-  /*                 "d_width:\t%d\n" */
-  /*                 "d_height:\t%d\n" */
-  /*         , offset_x, offset_y, d_width, d_height); */
 
   Colormap cmap = DefaultColormap(d, DefaultScreen(d));
   XColor p_fg, p_bg,
@@ -871,33 +884,33 @@ int main() {
     .ps1                        = ps1,
     .ps1len                     = strlen(ps1)
   };
-    
+
 #ifdef USE_XFT
-    r.xftdraw = XftDrawCreate(d, w, DefaultVisual(d, 0), DefaultColormap(d, 0));
+  r.xftdraw = XftDrawCreate(d, w, DefaultVisual(d, 0), DefaultColormap(d, 0));
 
-    // prompt
-    XRenderColor xrcolor;
-    xrcolor.red          = p_fg.red;
-    xrcolor.green        = p_fg.red;
-    xrcolor.blue         = p_fg.red;
-    xrcolor.alpha        = 65535;
-    XftColorAllocValue(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &xrcolor, &r.xft_prompt);
+  // prompt
+  XRenderColor xrcolor;
+  xrcolor.red          = p_fg.red;
+  xrcolor.green        = p_fg.red;
+  xrcolor.blue         = p_fg.red;
+  xrcolor.alpha        = 65535;
+  XftColorAllocValue(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &xrcolor, &r.xft_prompt);
 
-    // completion
-    xrcolor.red          = compl_fg.red;
-    xrcolor.green        = compl_fg.green;
-    xrcolor.blue         = compl_fg.blue;
-    xrcolor.alpha        = 65535;
-    XftColorAllocValue(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &xrcolor, &r.xft_completion);
+  // completion
+  xrcolor.red          = compl_fg.red;
+  xrcolor.green        = compl_fg.green;
+  xrcolor.blue         = compl_fg.blue;
+  xrcolor.alpha        = 65535;
+  XftColorAllocValue(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &xrcolor, &r.xft_completion);
 
-    // completion highlighted
-    xrcolor.red          = compl_highlighted_fg.red;
-    xrcolor.green        = compl_highlighted_fg.green;
-    xrcolor.blue         = compl_highlighted_fg.blue;
-    xrcolor.alpha        = 65535;
-    XftColorAllocValue(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &xrcolor, &r.xft_completion_highlighted);
+  // completion highlighted
+  xrcolor.red          = compl_highlighted_fg.red;
+  xrcolor.green        = compl_highlighted_fg.green;
+  xrcolor.blue         = compl_highlighted_fg.blue;
+  xrcolor.alpha        = 65535;
+  XftColorAllocValue(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &xrcolor, &r.xft_completion_highlighted);
 #endif
-    
+
   // load the colors in our GCs
   XSetForeground(d, r.prompt, p_fg.pixel);
   XSetForeground(d, r.prompt_bg, p_bg.pixel);
