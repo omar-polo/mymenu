@@ -541,8 +541,8 @@ void set_win_atoms_hints(Display *d, Window w, int width, int height) {
     fprintf(stderr, "Could not allocate memory for class hint\n");
     exit(EX_UNAVAILABLE);
   }
-  class_hint->res_name = "mymenu";
-  class_hint->res_class = "mymenu";
+  class_hint->res_name = resname;
+  class_hint->res_class = resclass;
   XSetClassHint(d, w, class_hint);
   XFree(class_hint);
 
@@ -551,6 +551,7 @@ void set_win_atoms_hints(Display *d, Window w, int width, int height) {
     fprintf(stderr, "Could not allocate memory for size hint\n");
     exit(EX_UNAVAILABLE);
   }
+  size_hint->flags = PMinSize | PBaseSize;
   size_hint->min_width = width;
   size_hint->base_width = width;
   size_hint->min_height = height;
