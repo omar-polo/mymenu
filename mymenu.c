@@ -812,6 +812,7 @@ int main() {
 
   // create the window
   XSetWindowAttributes attr;
+  attr.override_redirect = true;
 
   Window w = XCreateWindow(d,                                   // display
                            DefaultRootWindow(d),                // parent
@@ -821,7 +822,7 @@ int main() {
                            DefaultDepth(d, DefaultScreen(d)),   // depth
                            InputOutput,                         // class
                            DefaultVisual(d, DefaultScreen(d)),  // visual
-                           0,                                   // value mask
+                           CWOverrideRedirect,                  // value mask
                            &attr);
 
   set_win_atoms_hints(d, w, width, height);
