@@ -37,6 +37,10 @@
 # include <X11/extensions/Xinerama.h>
 #endif
 
+#ifdef USE_XFT
+# include <X11/Xft/Xft.h>
+#endif
+
 #define nil NULL
 #define resname "MyMenu"
 #define resclass "mymenu"
@@ -70,6 +74,8 @@
 
 enum state {LOOPING, OK, ERR};
 
+enum text_type {PROMPT, COMPL, COMPL_HIGH};
+
 struct rendering {
   Display *d;
   Window w;
@@ -79,9 +85,17 @@ struct rendering {
   GC completion_bg;
   GC completion_highlighted;
   GC completion_highlighted_bg;
+#ifdef USE_XFT
+  XftDraw *xftdraw;
+  XftColor xft_prompt;
+  XftColor xft_completion;
+  XftColor xft_completion_highlighted;
+  XftFont *font;
+#else
+  XFontSet *font;
+#endif
   int width;
   int height;
-  XFontSet *font;
   bool horizontal_layout;
   char *ps1;
   int ps1len;
@@ -323,6 +337,59 @@ int readlines (char ***lns, int items) {
   return items;
 }
 
+int text_extents(char *str, int len, struct rendering *r, int *ret_width, int *ret_height) {
+  int height;
+  int width;
+#ifdef USE_XFT
+  XGlyphInfo gi;
+  XftTextExtentsUtf8(r->d, r->font, str, len, &gi);
+  height = (r->font->ascent - r->font->descent)/2;
+  width = gi.width - gi.x;
+#else
+  XRectangle rect;
+  XmbTextExtents(*r->font, str, len, nil, &rect);
+  height = rect.height;
+  width = rect.width;
+#endif
+  if (ret_width != nil)  *ret_width = width;
+  if (ret_height != nil) *ret_height = height;
+  return width;
+}
+
+void draw_string(char *str, int len, int x, int y, struct rendering *r, enum text_type tt) {
+#ifdef USE_XFT
+  XftColor xftcolor;
+  if (tt == PROMPT)     xftcolor = r->xft_prompt;
+  if (tt == COMPL)      xftcolor = r->xft_completion;
+  if (tt == COMPL_HIGH) xftcolor = r->xft_completion_highlighted;
+
+  XftDrawStringUtf8(r->xftdraw, &xftcolor, r->font, x, y, str, len);
+#else
+  GC gc;
+  if (tt == PROMPT)     gc = r->prompt;
+  if (tt == COMPL)      gc = r->completion;
+  if (tt == COMPL_HIGH) gc = r->completion_highlighted;
+  Xutf8DrawString(r->d, r->w, *r->font, gc, x, y, str, len);
+#endif
+}
+
+char *strdupn(char *str) {
+  int len = strlen(str);
+
+  if (str == nil || len == 0)
+    return nil;
+
+  char *dup = strdup(str);
+  if (dup == nil)
+    return nil;
+
+  for (int i = 0; i < len; ++i)
+    if (dup[i] == ' ')
+      dup[i] = 'n';
+
+  return dup;
+}
+
 // |------------------|----------------------------------------------|
 // | 20 char text     | completion | completion | completion | compl |
 // |------------------|----------------------------------------------|
@@ -330,40 +397,39 @@ void draw_horizontally(struct rendering *r, char *text, struct completions *cs) 
   // TODO: make these dynamic?
   int prompt_width = 20; // char
   int padding = 10;
-  /* int start_at = XTextWidth(r->font, " ", 1) * prompt_width + padding; */
 
-  XRectangle rect;
-  int ps1xlen = XmbTextExtents(*r->font, r->ps1, r->ps1len, nil, &rect);
+  int width, height;
+  char *ps1_dup = strdupn(r->ps1);
+  ps1_dup = ps1_dup == nil ? r->ps1 : ps1_dup;
+  int ps1xlen = text_extents(ps1_dup, r->ps1len, r, &width, &height);
+  free(ps1_dup);
   int start_at = ps1xlen;
 
-  start_at += XmbTextExtents(*r->font, " ", 1, nil, &rect);
+  start_at = text_extents("n", 1, r, nil, nil);
   start_at = start_at * prompt_width + padding;
 
-  int texty = (rect.height + r->height) >>1;
+  int texty = (height + r->height) >>1;
 
   XFillRectangle(r->d, r->w, r->prompt_bg, 0, 0, start_at, r->height);
 
   int text_len = strlen(text);
   if (text_len > prompt_width)
     text = text + (text_len - prompt_width);
-  /* XDrawString(r->d, r->w, r->prompt, padding, texty, text, MIN(text_len, prompt_width)); */
-  Xutf8DrawString(r->d, r->w, *r->font, r->prompt, padding, texty, r->ps1, r->ps1len);
-  Xutf8DrawString(r->d, r->w, *r->font, r->prompt, padding + ps1xlen, texty, text, MIN(text_len, prompt_width));
+  draw_string(r->ps1, r->ps1len, padding, texty, r, PROMPT);
+  draw_string(text, MIN(text_len, prompt_width), padding + ps1xlen, texty, r, PROMPT);
 
   XFillRectangle(r->d, r->w, r->completion_bg, start_at, 0, r->width, r->height);
 
   while (cs != nil) {
-    GC g = cs->selected ? r->completion_highlighted    : r->completion;
+    enum text_type tt = cs->selected ? COMPL_HIGH : COMPL;
     GC h = cs->selected ? r->completion_highlighted_bg : r->completion_bg;
 
     int len = strlen(cs->completion);
-    /* int text_width = XTextWidth(r->font, cs->completion, len); */
-    int text_width = XmbTextExtents(*r->font, cs->completion, len, nil, nil);
+    int text_width = text_extents(cs->completion, len, r, nil, nil);
 
     XFillRectangle(r->d, r->w, h, start_at, 0, text_width + padding*2, r->height);
 
-    /*  XDrawString(r->d, r->w,           g, start_at + padding, texty, cs->completion, len); */
-    Xutf8DrawString(r->d, r->w, *r->font, g, start_at + padding, texty, cs->completion, len);
+    draw_string(cs->completion, len, start_at + padding, texty, r, tt);
 
     start_at += text_width + padding * 2;
 
@@ -389,26 +455,31 @@ void draw_horizontally(struct rendering *r, char *text, struct completions *cs) 
 void draw_vertically(struct rendering *r, char *text, struct completions *cs) {
   int padding = 10; // TODO make this dynamic
 
-  XRectangle rect;
-  XmbTextExtents(*r->font, "fjpgl", 5, &rect, nil);
-  int start_at = rect.height + padding*2;
+  int height, width;
+  text_extents("fjpgl", 5, r, &width, &height);
+  int start_at = height + padding*2;
 
   XFillRectangle(r->d, r->w, r->completion_bg, 0, 0, r->width, r->height);
   XFillRectangle(r->d, r->w, r->prompt_bg, 0, 0, r->width, start_at);
-  int ps1xlen = XmbTextExtents(*r->font, r->ps1, r->ps1len, nil, nil);
-  Xutf8DrawString(r->d, r->w, *r->font, r->prompt, padding, padding*2, r->ps1, r->ps1len);
-  Xutf8DrawString(r->d, r->w, *r->font, r->prompt, padding + ps1xlen, padding*2, text, strlen(text));
+
+  char *ps1_dup = strdupn(r->ps1);
+  ps1_dup = ps1_dup == nil ? r->ps1 : ps1_dup;
+  int ps1xlen = text_extents(ps1_dup, r->ps1len, r, nil, nil);
+  free(ps1_dup);
+
+  draw_string(r->ps1, r->ps1len, padding, padding*2, r, PROMPT);
+  draw_string(text, strlen(text), padding + ps1xlen, padding*2, r, PROMPT);
 
   while (cs != nil) {
-    GC g = cs->selected ? r->completion_highlighted    : r->completion;
+    enum text_type tt = cs->selected ? COMPL_HIGH : COMPL;
     GC h = cs->selected ? r->completion_highlighted_bg : r->completion_bg;
 
     int len = strlen(cs->completion);
-    XmbTextExtents(*r->font, cs->completion, len, &rect, nil);
-    XFillRectangle(r->d, r->w, h, 0, start_at, r->width, rect.height + padding*2);
-    Xutf8DrawString(r->d, r->w, *r->font, g, padding, start_at + padding*2, cs->completion, len);
+    text_extents(cs->completion, len, r, &width, &height);
+    XFillRectangle(r->d, r->w, h, 0, start_at, r->width, height + padding*2);
+    draw_string(cs->completion, len, padding, start_at + padding*2, r, tt);
 
-    start_at += rect.height + padding *2;
+    start_at += height + padding *2;
 
     if (start_at > r->height)
       break; // don't draw completion if the space isn't enough
@@ -546,7 +617,6 @@ int parse_int_with_middle(const char *str, int default_value, int max, int self)
 }
 
 int main() {
-  /* char *lines[INITIAL_ITEMS] = {0}; */
   char **lines = calloc(INITIAL_ITEMS, sizeof(char*));
   int nlines = readlines(&lines, INITIAL_ITEMS);
 
@@ -727,6 +797,9 @@ int main() {
   /*   font = XLoadQueryFont(d, "fixed"); */
   /* } */
   // load the font
+#ifdef USE_XFT
+  XftFont *font = XftFontOpenName(d, DefaultScreen(d), fontname);
+#else
   char **missing_charset_list;
   int missing_charset_count;
   XFontSet font = XCreateFontSet(d, fontname, &missing_charset_list, &missing_charset_count, nil);
@@ -734,6 +807,7 @@ int main() {
     fprintf(stderr, "Unable to load the font(s) %s\n", fontname);
     return EX_UNAVAILABLE;
   }
+#endif
 
   // create the window
   XSetWindowAttributes attr;
@@ -752,7 +826,7 @@ int main() {
   set_win_atoms_hints(d, w, width, height);
 
   // we want some events
-  XSelectInput(d, w, StructureNotifyMask | KeyPressMask | KeyReleaseMask | KeymapStateMask);
+  XSelectInput(d, w, StructureNotifyMask | KeyPressMask | KeymapStateMask);
 
   // make the window appear on the screen
   XMapWindow(d, w);
@@ -778,26 +852,50 @@ int main() {
   struct rendering r = {
     .d                          = d,
     .w                          = w,
+#ifdef USE_XFT
+    .font                       = font,
+#else
+    .font                       = &font,
+#endif
     .prompt                     = XCreateGC(d, w, 0, &values),
     .prompt_bg                  = XCreateGC(d, w, 0, &values),
     .completion                 = XCreateGC(d, w, 0, &values),
     .completion_bg              = XCreateGC(d, w, 0, &values),
     .completion_highlighted     = XCreateGC(d, w, 0, &values),
     .completion_highlighted_bg  = XCreateGC(d, w, 0, &values),
-    /* .prompt                     = XCreateGC(d, w, GCFont, &values), */
-    /* .prompt_bg                  = XCreateGC(d, w, GCFont, &values), */
-    /* .completion                 = XCreateGC(d, w, GCFont, &values), */
-    /* .completion_bg              = XCreateGC(d, w, GCFont, &values), */
-    /* .completion_highlighted     = XCreateGC(d, w, GCFont, &values), */
-    /* .completion_highlighted_bg  = XCreateGC(d, w, GCFont, &values), */
     .width                      = width,
     .height                     = height,
-    .font                       = &font,
     .horizontal_layout          = horizontal_layout,
     .ps1                        = ps1,
     .ps1len                     = strlen(ps1)
   };
+    
+#ifdef USE_XFT
+    r.xftdraw = XftDrawCreate(d, w, DefaultVisual(d, 0), DefaultColormap(d, 0));
 
+    // prompt
+    XRenderColor xrcolor;
+    xrcolor.red          = p_fg.red;
+    xrcolor.green        = p_fg.red;
+    xrcolor.blue         = p_fg.red;
+    xrcolor.alpha        = 65535;
+    XftColorAllocValue(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &xrcolor, &r.xft_prompt);
+
+    // completion
+    xrcolor.red          = compl_fg.red;
+    xrcolor.green        = compl_fg.green;
+    xrcolor.blue         = compl_fg.blue;
+    xrcolor.alpha        = 65535;
+    XftColorAllocValue(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &xrcolor, &r.xft_completion);
+
+    // completion highlighted
+    xrcolor.red          = compl_highlighted_fg.red;
+    xrcolor.green        = compl_highlighted_fg.green;
+    xrcolor.blue         = compl_highlighted_fg.blue;
+    xrcolor.alpha        = 65535;
+    XftColorAllocValue(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &xrcolor, &r.xft_completion_highlighted);
+#endif
+    
   // load the colors in our GCs
   XSetForeground(d, r.prompt, p_fg.pixel);
   XSetForeground(d, r.prompt_bg, p_bg.pixel);
@@ -848,8 +946,6 @@ int main() {
     case KeymapNotify:
       XRefreshKeyboardMapping(&e.xmapping);
       break;
-
-    case KeyRelease: break; // ignore this
 
     case KeyPress: {
       XKeyPressedEvent *ev = (XKeyPressedEvent*)&e;
@@ -975,6 +1071,12 @@ int main() {
   for (int i = 0; i < nlines; ++i) {
     free(lines[i]);
   }
+
+#ifdef USE_XFT
+    XftColorFree(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &r.xft_prompt);
+    XftColorFree(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &r.xft_completion);
+    XftColorFree(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &r.xft_completion_highlighted);
+#endif
 
   free(ps1);
   free(fontname);

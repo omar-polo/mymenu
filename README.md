@@ -28,14 +28,17 @@ also the [template](Xexample) for the resources.
  - Xlib
  - Xinerama (optional)
    For multi-monitor support
+ - Xft (optional)
+   For TrueType (r) font support
  - pkg-config (optional)
    used in the makefile to generate `LIBS` and `CFLAGS` correctly
 
 ## Build
 
-As simple as `make`. If you want to disable Xinerama support just
-delete `-DUSE_XINERAMA` from the `CFLAGS` and `xinerama` from the
-`pkg-config` call from the Makefile.
+As simple as `make`. By default both Xft and Xinerama are enabled, if
+you want to disable them just delete the relative `-DUSE_` from the
+`CFLAGS` and update the `OPTIONAL` variable. Of course you can delete
+both, or just one of them.
 
 ## FAQ
 
@@ -71,8 +74,6 @@ delete `-DUSE_XINERAMA` from the `CFLAGS` and `xinerama` from the
 
    At the moment the X Resource Database is the only way to interact
    with the graphic appearance of MyMenu.
-
- - Optional TrueType support
 
  - Opacity support
 
