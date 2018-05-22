@@ -35,10 +35,24 @@ also the [template](Xexample) for the resources.
 
 ## Build
 
-As simple as `make`. By default both Xft and Xinerama are enabled, if
-you want to disable them just delete the relative `-DUSE_` from the
-`CFLAGS` and update the `OPTIONAL` variable. Of course you can delete
-both, or just one of them.
+As simple as `make` (or `make gnu` if you're using GNU libc). Keep in
+mind that, by default, both Xft and Xinerama are enabled. So, you may
+want to run:
+
+  - `make no_xft` to build without xft support;
+  - `make no_xinerama` to build without xinerama support;
+  - `make no_xft_xinerama` to build without xinerama *and* no xft support.
+
+#### ignore case completion / don't have `strcasestr(3)`
+
+If you want to build without the ignore case completion or on your
+platform `strcasestr(3)` isn't available, you have to update the
+`Makefile` and remove `-DUSE_STRCASESTR`. A simple
+``` shell
+sed -i.orig 's/-DUSE_STRCASESTR//g' Makefile
+```
+should be enough.
+
 
 ## FAQ
 
@@ -70,12 +84,17 @@ both, or just one of them.
 
 ## TODO
 
+ - Improve UTF8 support
+ 
+   The whole UTF8 support is still kinda naïve and should definitely
+   be improved.
+
+ - Opacity support
+
  - Command line flags
 
    At the moment the X Resource Database is the only way to interact
    with the graphic appearance of MyMenu.
-
- - Opacity support
 
 ## Scripts
 
@@ -138,7 +157,7 @@ path=`echo $PATH | sed 's/:/ /g'`
     for i in $path; do
         ls -F $i | grep '.*\*$' | sed 's/\*//'
     done
-} | sort | /bin/sh -c "$(mymenu "$@")"
+} | sort -f | /bin/sh -c "$(mymenu "$@")"
 ```
 
 Of course you can as well use the `dmenu_path` and `dmenu_run` scripts
