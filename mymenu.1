@@ -20,8 +20,9 @@ Resource Database\fR.
 Application specific resources:
 .Bl -tag -width Ds
 .It MyMenu.font
-The font name, only bitmap font are supported. By default is set to
-"fixed". If compiled with Xft(3) support this will be passed to xft.
+The font name to use. By default is set to "fixed" if compiled without
+Xft(3) support, "monospace" otherwise. Without Xft(3) only bitmap font
+are supported.
 .It MyMenu.layout
 The layout of the menu. The possible values are "horizontal" and
 "vertical", with the default being "horizontal". Every other value
@@ -91,6 +92,9 @@ If, instead of a numeric value, a not-valid number that terminates
 with the % sign is supplied, then the default value for that field
 will be treated as a percentage. Since this is a misuse of the
 resources this behavior isn't strictly considered a bug.
+.It
+C-w (delete last word) does not work well with multi-byte string. The
+whole UTF-8 support is still kinda naïve and should be improved.
 .El
 
 .Sh EXIT STATUS

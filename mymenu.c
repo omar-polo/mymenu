@@ -45,8 +45,20 @@
 #define resname "MyMenu"
 #define resclass "mymenu"
 
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#ifdef USE_XFT
+# define default_fontname "monospace"
+#else
+# define default_fontname "fixed"
+#endif
+
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
+
+// If we don't have it or we don't want an "ignore case" completion
+// style, fall back to `strstr(3)`
+#ifndef USE_STRCASESTR
+#define strcasestr strstr
+#endif
 
 #define update_completions(cs, text, lines) {   \
     compl_delete(cs);                           \
@@ -55,13 +67,9 @@
 
 #define INITIAL_ITEMS 64
 
-#define TODO(s) {                               \
-    fprintf(stderr, "TODO! " s "\n");           \
-  }
-
 #define cannot_allocate_memory {                        \
     fprintf(stderr, "Could not allocate memory\n");     \
-    exit(EX_UNAVAILABLE);                               \
+    abort();                                            \
   }
 
 #define check_allocation(a) {     \
@@ -185,7 +193,7 @@ struct completions *filter(char *text, char **lines) {
     if (l == nil)
       break;
 
-    if (strstr(l, text) != nil) {
+    if (strcasestr(l, text) != nil) {
       c->next = compl_new();
       c = c->next;
       c->completion = l;
@@ -637,7 +645,7 @@ int main() {
   char *ps1 = strdup("$ ");
   check_allocation(ps1);
 
-  char *fontname = strdup("fixed");
+  char *fontname = strdup(default_fontname);
   check_allocation(fontname);
 
   int textlen = 10;
