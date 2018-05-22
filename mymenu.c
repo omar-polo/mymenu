@@ -614,8 +614,7 @@ int parse_int_with_percentage(const char *str, int default_value, int max) {
     free(cpy);
     return val * max / 100;
   }
-  fprintf(stderr, "%s isn't a valid number/percentage\n", str);
-  return default_value;
+  return parse_integer(str, default_value);
 }
 
 int parse_int_with_middle(const char *str, int default_value, int max, int self) {
