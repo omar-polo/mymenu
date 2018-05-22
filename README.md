@@ -62,12 +62,6 @@ should be enough.
    then it'll display a window. Are you sure that you're passing
    something on standard input?
 
- - License
-
-   The code is released under GPLv3, but I don't have strong
-   preference regard licenses, so if you ask I may release the code
-   also under a different license (a free software one of course).
-
  - Will feature $X be added?
 
    No. Or maybe Yes. In fact, it depends. Open an issue and let's
