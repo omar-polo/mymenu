@@ -324,13 +324,18 @@ int readlines (char ***lns, int items) {
   return items;
 }
 
+// Compute the dimension of the string str once rendered, return the
+// width and save the width and the height in ret_width and ret_height
 int text_extents(char *str, int len, struct rendering *r, int *ret_width, int *ret_height) {
   int height;
   int width;
 #ifdef USE_XFT
   XGlyphInfo gi;
   XftTextExtentsUtf8(r->d, r->font, str, len, &gi);
-  height = (r->font->ascent - r->font->descent)/2;
+  // Honestly I don't know why this won't work, but I found that this
+  // formula seems to work with various ttf font
+  /* height = gi.height; */
+  height = (gi.height + (r->font->ascent - r->font->descent)/2) / 2;
   width = gi.width - gi.x;
 #else
   XRectangle rect;
@@ -343,6 +348,7 @@ int text_extents(char *str, int len, struct rendering *r, int *ret_width, int *r
   return width;
 }
 
+// Draw the string str
 void draw_string(char *str, int len, int x, int y, struct rendering *r, enum text_type tt) {
 #ifdef USE_XFT
   XftColor xftcolor;
@@ -360,6 +366,7 @@ void draw_string(char *str, int len, int x, int y, struct rendering *r, enum tex
 #endif
 }
 
+// Duplicate the string str and substitute every space with a 'n'
 char *strdupn(char *str) {
   int len = strlen(str);
 
@@ -571,16 +578,16 @@ void release_keyboard(Display *d) {
   XUngrabKeyboard(d, CurrentTime);
 }
 
-int parse_integer(const char *str, int default_value, int max) {
-  int len = strlen(str);
-  if (len > 0 && str[len-1] == '%') {
-    char *cpy = strdup(str);
-    check_allocation(cpy);
-    cpy[len-1] = '\0';
-    int val = parse_integer(cpy, default_value, max);
-    free(cpy);
-    return val * max / 100;
-  }
+int parse_integer(const char *str, int default_value) {
+  /* int len = strlen(str); */
+  /* if (len > 0 && str[len-1] == '%') { */
+  /*   char *cpy = strdup(str); */
+  /*   check_allocation(cpy); */
+  /*   cpy[len-1] = '\0'; */
+  /*   int val = parse_integer(cpy, default_value, max); */
+  /*   free(cpy); */
+  /*   return val * max / 100; */
+  /* } */
 
   errno = 0;
   char *ep;
@@ -597,11 +604,25 @@ int parse_integer(const char *str, int default_value, int max) {
   return lval;
 }
 
+int parse_int_with_percentage(const char *str, int default_value, int max) {
+  int len = strlen(str);
+  if (len > 0 && str[len-1] == '%') {
+    char *cpy = strdup(str);
+    check_allocation(cpy);
+    cpy[len-1] = '\0';
+    int val = parse_integer(cpy, default_value);
+    free(cpy);
+    return val * max / 100;
+  }
+  fprintf(stderr, "%s isn't a valid number/percentage\n", str);
+  return default_value;
+}
+
 int parse_int_with_middle(const char *str, int default_value, int max, int self) {
   if (!strcmp(str, "middle")) {
     return (max - self)/2;
   }
-  return parse_integer(str, default_value, max);
+  return parse_int_with_percentage(str, default_value, max);
 }
 
 int main() {
@@ -730,12 +751,12 @@ int main() {
       fprintf(stderr, "no prompt defined, using \"%s\" as default\n", ps1);
 
     if (XrmGetResource(xdb, "MyMenu.width", "*", datatype, &value) == true)
-      width = parse_integer(value.addr, width, d_width);
+      width = parse_int_with_percentage(value.addr, width, d_width);
     else
       fprintf(stderr, "no width defined, using %d\n", width);
 
     if (XrmGetResource(xdb, "MyMenu.height", "*", datatype, &value) == true)
-      height = parse_integer(value.addr, height, d_height);
+      height = parse_int_with_percentage(value.addr, height, d_height);
     else
       fprintf(stderr, "no height defined, using %d\n", height);
 
