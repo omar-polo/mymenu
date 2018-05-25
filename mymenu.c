@@ -47,6 +47,24 @@
     cs = filter(text, lines);                   \
   }
 
+#define complete(cs, nothing_selected, p, text, textlen, status) {      \
+    struct completions *n = p                                           \
+      ? compl_select_prev(cs, nothing_selected)                         \
+      : compl_select_next(cs, nothing_selected);                        \
+                                                                        \
+    if (n != nil) {                                                     \
+      nothing_selected = false;                                         \
+      free(text);                                                       \
+      text = strdup(n->completion);                                     \
+      if (text == nil) {                                                \
+        fprintf(stderr, "Memory allocation error!\n");                  \
+        status = ERR;                                                   \
+        break;                                                          \
+      }                                                                 \
+      textlen = strlen(text);                                           \
+    }                                                                   \
+  }
+
 #define INITIAL_ITEMS 64
 
 #define cannot_allocate_memory {                        \
@@ -977,19 +995,7 @@ int main() {
 
       if (ev->keycode == XKeysymToKeycode(d, XK_Tab)) {
         bool shift = (ev->state & ShiftMask);
-        struct completions *n = shift ? compl_select_prev(cs, nothing_selected)
-                                      : compl_select_next(cs, nothing_selected);
-        if (n != nil) {
-          nothing_selected = false;
-          free(text);
-          text = strdup(n->completion);
-          if (text == nil) {
-            fprintf(stderr, "Memory allocation error!\n");
-            status = ERR;
-            break;
-          }
-          textlen = strlen(text);
-        }
+        complete(cs, nothing_selected, shift, text, textlen, status);
         draw(&r, text, cs);
         break;
       }
@@ -1062,6 +1068,12 @@ int main() {
         }
         if (!strcmp(str, "\r")) { // C-m
           status = OK;
+        }
+        if (!strcmp(str, "")) {
+          complete(cs, nothing_selected, true, text, textlen, status);
+        }
+        if (!strcmp(str, "")) {
+          complete(cs, nothing_selected, false, text, textlen, status);
         }
         draw(&r, text, cs);
         break;
