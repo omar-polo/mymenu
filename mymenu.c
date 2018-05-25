@@ -43,7 +43,7 @@
 #endif
 
 #define update_completions(cs, text, lines) {   \
-    compl_delete(cs);                           \
+    compl_delete_rec(cs);                       \
     cs = filter(text, lines);                   \
   }
 
@@ -128,6 +128,14 @@ void compl_delete(struct completions *c) {
   free(c);
 }
 
+void compl_delete_rec(struct completions *c) {
+  while (c != nil) {
+    struct completions *t = c->next;
+    free(c);
+    c = t;
+  }
+}
+
 struct completions *compl_select_next(struct completions *c, bool n) {
   if (c == nil)
     return nil;
@@ -187,6 +195,8 @@ struct completions *filter(char *text, char **lines) {
   int i = 0;
   struct completions *root = compl_new();
   struct completions *c = root;
+  if (c == nil)
+    return nil;
 
   for (;;) {
     char *l = lines[i];
@@ -196,6 +206,10 @@ struct completions *filter(char *text, char **lines) {
     if (strcasestr(l, text) != nil) {
       c->next = compl_new();
       c = c->next;
+      if (c == nil) {
+        compl_delete_rec(root);
+        return nil;
+      }
       c->completion = l;
     }
 
@@ -693,7 +707,6 @@ int main() {
   if (XineramaIsActive(d)) {
     // find the mice
     int number_of_screens = XScreenCount(d);
-    bool result;
     Window r;
     Window root;
     int root_x, root_y, win_x, win_y;
