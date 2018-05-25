@@ -39,7 +39,7 @@
 // If we don't have it or we don't want an "ignore case" completion
 // style, fall back to `strstr(3)`
 #ifndef USE_STRCASESTR
-#define strcasestr strstr
+# define strcasestr strstr
 #endif
 
 #define update_completions(cs, text, lines) {   \
