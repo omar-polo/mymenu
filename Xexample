@@ -6,6 +6,7 @@ MyMenu.width: 100%
 MyMenu.height: 30
 MyMenu.x: 0
 MyMenu.y: 0
+MyMenu.padding: 10
 
 MyMenu.prompt.background: #222
 MyMenu.prompt.foreground: #eaeaea
