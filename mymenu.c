@@ -171,7 +171,8 @@ struct completions *compl_select_prev(struct completions *c, bool n) {
 
   struct completions *cc = c;
 
-  if (n) // select the last one
+  if (n || c->selected) { // select the last one
+    c->selected = false;
     while (cc != nil) {
       if (cc->next == nil) {
         cc->selected = true;
@@ -179,6 +180,7 @@ struct completions *compl_select_prev(struct completions *c, bool n) {
       }
       cc = cc->next;
     }
+  }
   else // select the previous one
     while (cc != nil) {
       if (cc->next != nil && cc->next->selected) {
