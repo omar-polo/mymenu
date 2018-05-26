@@ -84,6 +84,12 @@ enum text_type {PROMPT, COMPL, COMPL_HIGH};
 struct rendering {
   Display *d;
   Window w;
+  int width;
+  int height;
+  int padding;
+  bool horizontal_layout;
+  char *ps1;
+  int ps1len;
   GC prompt;
   GC prompt_bg;
   GC completion;
@@ -91,19 +97,14 @@ struct rendering {
   GC completion_highlighted;
   GC completion_highlighted_bg;
 #ifdef USE_XFT
+  XftFont *font;
   XftDraw *xftdraw;
   XftColor xft_prompt;
   XftColor xft_completion;
   XftColor xft_completion_highlighted;
-  XftFont *font;
 #else
   XFontSet *font;
 #endif
-  int width;
-  int height;
-  bool horizontal_layout;
-  char *ps1;
-  int ps1len;
 };
 
 struct completions {
@@ -364,10 +365,10 @@ int text_extents(char *str, int len, struct rendering *r, int *ret_width, int *r
 #ifdef USE_XFT
   XGlyphInfo gi;
   XftTextExtentsUtf8(r->d, r->font, str, len, &gi);
-  // Honestly I don't know why this won't work, but I found that this
-  // formula seems to work with various ttf font
   /* height = gi.height; */
-  height = (gi.height + (r->font->ascent - r->font->descent)/2) / 2;
+  /* height = (gi.height + (r->font->ascent - r->font->descent)/2) / 2; */
+  /* height = (r->font->ascent - r->font->descent)/2 + gi.height*2; */
+  height = r->font->ascent - r->font->descent;
   width = gi.width - gi.x;
 #else
   XRectangle rect;
@@ -420,19 +421,20 @@ char *strdupn(char *str) {
 // | 20 char text     | completion | completion | completion | compl |
 // |------------------|----------------------------------------------|
 void draw_horizontally(struct rendering *r, char *text, struct completions *cs) {
-  // TODO: make these dynamic?
   int prompt_width = 20; // char
-  int padding = 10;
 
   int width, height;
   char *ps1_dup = strdupn(r->ps1);
+  if (ps1_dup == nil)
+    return;
+
   ps1_dup = ps1_dup == nil ? r->ps1 : ps1_dup;
   int ps1xlen = text_extents(ps1_dup, r->ps1len, r, &width, &height);
   free(ps1_dup);
   int start_at = ps1xlen;
 
   start_at = text_extents("n", 1, r, nil, nil);
-  start_at = start_at * prompt_width + padding;
+  start_at = start_at * prompt_width + r->padding;
 
   int texty = (height + r->height) >>1;
 
@@ -441,8 +443,8 @@ void draw_horizontally(struct rendering *r, char *text, struct completions *cs) 
   int text_len = strlen(text);
   if (text_len > prompt_width)
     text = text + (text_len - prompt_width);
-  draw_string(r->ps1, r->ps1len, padding, texty, r, PROMPT);
-  draw_string(text, MIN(text_len, prompt_width), padding + ps1xlen, texty, r, PROMPT);
+  draw_string(r->ps1, r->ps1len, r->padding, texty, r, PROMPT);
+  draw_string(text, MIN(text_len, prompt_width), r->padding + ps1xlen, texty, r, PROMPT);
 
   XFillRectangle(r->d, r->w, r->completion_bg, start_at, 0, r->width, r->height);
 
@@ -453,11 +455,11 @@ void draw_horizontally(struct rendering *r, char *text, struct completions *cs) 
     int len = strlen(cs->completion);
     int text_width = text_extents(cs->completion, len, r, nil, nil);
 
-    XFillRectangle(r->d, r->w, h, start_at, 0, text_width + padding*2, r->height);
+    XFillRectangle(r->d, r->w, h, start_at, 0, text_width + r->padding*2, r->height);
 
-    draw_string(cs->completion, len, start_at + padding, texty, r, tt);
+    draw_string(cs->completion, len, start_at + r->padding, texty, r, tt);
 
-    start_at += text_width + padding * 2;
+    start_at += text_width + r->padding * 2;
 
     if (start_at > r->width)
       break; // don't draw completion if the space isn't enough
@@ -475,15 +477,10 @@ void draw_horizontally(struct rendering *r, char *text, struct completions *cs) 
 // |-----------------------------------------------------------------|
 // |  completion                                                     |
 // |-----------------------------------------------------------------|
-// TODO: dunno why but in the call to Xutf8DrawString, by logic,
-// should be padding and not padding*2, but the text doesn't seem to
-// be vertically centered otherwise....
 void draw_vertically(struct rendering *r, char *text, struct completions *cs) {
-  int padding = 10; // TODO make this dynamic
-
   int height, width;
-  text_extents("fjpgl", 5, r, &width, &height);
-  int start_at = height + padding*2;
+  text_extents("fjpgl", 5, r, nil, &height);
+  int start_at = height + r->padding;
 
   XFillRectangle(r->d, r->w, r->completion_bg, 0, 0, r->width, r->height);
   XFillRectangle(r->d, r->w, r->prompt_bg, 0, 0, r->width, start_at);
@@ -493,8 +490,9 @@ void draw_vertically(struct rendering *r, char *text, struct completions *cs) {
   int ps1xlen = text_extents(ps1_dup, r->ps1len, r, nil, nil);
   free(ps1_dup);
 
-  draw_string(r->ps1, r->ps1len, padding, padding*2, r, PROMPT);
-  draw_string(text, strlen(text), padding + ps1xlen, padding*2, r, PROMPT);
+  draw_string(r->ps1, r->ps1len, r->padding, height + r->padding, r, PROMPT);
+  draw_string(text, strlen(text), r->padding + ps1xlen, height + r->padding, r, PROMPT);
+  start_at += r->padding;
 
   while (cs != nil) {
     enum text_type tt = cs->selected ? COMPL_HIGH : COMPL;
@@ -502,10 +500,10 @@ void draw_vertically(struct rendering *r, char *text, struct completions *cs) {
 
     int len = strlen(cs->completion);
     text_extents(cs->completion, len, r, &width, &height);
-    XFillRectangle(r->d, r->w, h, 0, start_at, r->width, height + padding*2);
-    draw_string(cs->completion, len, padding, start_at + padding*2, r, tt);
+    XFillRectangle(r->d, r->w, h, 0, start_at, r->width, height + r->padding*2);
+    draw_string(cs->completion, len, r->padding, start_at + height + r->padding, r, tt);
 
-    start_at += height + padding *2;
+    start_at += height + r->padding *2;
 
     if (start_at > r->height)
       break; // don't draw completion if the space isn't enough
@@ -676,6 +674,8 @@ int main() {
   int x = 0;
   int y = 0;
 
+  int padding = 10;
+
   char *ps1 = strdup("$ ");
   check_allocation(ps1);
 
@@ -793,12 +793,17 @@ int main() {
     if (XrmGetResource(xdb, "MyMenu.x", "*", datatype, &value) == true)
       x = parse_int_with_middle(value.addr, x, d_width, width);
     else
-      fprintf(stderr, "no x defined, using %d\n", width);
+      fprintf(stderr, "no x defined, using %d\n", x);
 
     if (XrmGetResource(xdb, "MyMenu.y", "*", datatype, &value) == true)
       y = parse_int_with_middle(value.addr, y, d_height, height);
     else
-      fprintf(stderr, "no y defined, using %d\n", height);
+      fprintf(stderr, "no y defined, using %d\n", y);
+
+    if (XrmGetResource(xdb, "MyMenu.padding", "*", datatype, &value) == true)
+      padding = parse_integer(value.addr, padding);
+    else
+      fprintf(stderr, "no y defined, using %d\n", padding);
 
     XColor tmp;
     // TODO: tmp needs to be free'd after every allocation?
@@ -921,6 +926,7 @@ int main() {
     .completion_highlighted_bg  = XCreateGC(d, w, 0, &values),
     .width                      = width,
     .height                     = height,
+    .padding                    = padding,
     .horizontal_layout          = horizontal_layout,
     .ps1                        = ps1,
     .ps1len                     = strlen(ps1)
