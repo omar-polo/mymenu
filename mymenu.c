@@ -42,9 +42,11 @@
 # define strcasestr strstr
 #endif
 
-#define update_completions(cs, text, lines) {   \
-    compl_delete_rec(cs);                       \
-    cs = filter(text, lines);                   \
+#define update_completions(cs, text, lines, first_selected) {	\
+    compl_delete_rec(cs);					\
+    cs = filter(text, lines);					\
+    if (first_selected && cs != nil) 				\
+      cs->selected = true;					\
   }
 
 #define complete(cs, nothing_selected, p, text, textlen, status) {      \
@@ -328,6 +330,11 @@ char *readline(bool *eof) {
   return str;
 }
 
+// read an arbitrary amount of text until an EOF and store it in
+// lns. `items` is the capacity of lns. It may increase lns with
+// `realloc(3)` to store more line. Return the number of lines
+// read. The last item will always be a NULL pointer. It ignore the
+// "null" (empty) lines
 int readlines (char ***lns, int items) {
   bool finished = false;
   int n = 0;
@@ -656,9 +663,63 @@ int parse_int_with_middle(const char *str, int default_value, int max, int self)
   return parse_int_with_percentage(str, default_value, max);
 }
 
-int main() {
+void usage(char *prgname) {
+  fprintf(stderr, "Usage: %s [flags]\n", prgname);
+  fprintf(stderr, "\t-a: automatic mode, the first completion is "
+                  "always selected;\n");
+  fprintf(stderr, "\t-h: print this help.\n");
+}
+
+int exit_cleanup(struct rendering *r, char *ps1, char *fontname, char *text, char **lines, struct completions *cs, int status) {
+  release_keyboard(r->d);
+
+#ifdef USE_XFT
+  XftColorFree(r->d, DefaultVisual(r->d, 0), DefaultColormap(r->d, 0), &r->xft_prompt);
+  XftColorFree(r->d, DefaultVisual(r->d, 0), DefaultColormap(r->d, 0), &r->xft_completion);
+  XftColorFree(r->d, DefaultVisual(r->d, 0), DefaultColormap(r->d, 0), &r->xft_completion_highlighted);
+#endif
+
+  free(ps1);
+  free(fontname);
+  free(text);
+
+  char *l = nil;
+  char **lns = lines;
+  while ((l = *lns) != nil) {
+    free(l);
+    ++lns;
+  }
+  free(lines);
+  compl_delete(cs);
+
+  XDestroyWindow(r->d, r->w);
+  XCloseDisplay(r->d);
+
+  return status;
+}
+
+int main(int argc, char **argv) {
+  // by default the first completion isn't selected
+  bool first_selected = false;
+
+  // parse the command line options
+  int ch;
+  while ((ch = getopt(argc, argv, "ah")) != -1) {
+    switch (ch) {
+    case 'a':
+      first_selected = true;
+      break;
+    case 'h':
+      usage(*argv);
+      return 0;
+    default:
+      usage(*argv);
+      return EX_USAGE;
+    }
+  }
+
   char **lines = calloc(INITIAL_ITEMS, sizeof(char*));
-  int nlines = readlines(&lines, INITIAL_ITEMS);
+  readlines(&lines, INITIAL_ITEMS);
 
   setlocale(LC_ALL, getenv("LANG"));
 
@@ -676,6 +737,7 @@ int main() {
   int x = 0;
   int y = 0;
 
+  // the default padding
   int padding = 10;
 
   char *ps1 = strdup("$ ");
@@ -688,8 +750,10 @@ int main() {
   char *text = malloc(textlen * sizeof(char));
   check_allocation(text);
 
-  struct completions *cs = filter(text, lines);
-  bool nothing_selected = true;
+  bool nothing_selected = first_selected;
+  /* struct completions *cs = filter(text, lines); */
+  struct completions *cs = nil;
+  update_completions(cs, text, lines, first_selected);
 
   // start talking to xorg
   Display *d = XOpenDisplay(nil);
@@ -1022,15 +1086,18 @@ int main() {
       }
 
       if (ev->keycode == XKeysymToKeycode(d, XK_BackSpace)) {
-        nothing_selected = true;
+        nothing_selected = first_selected;
         popc(text, textlen);
-        update_completions(cs, text, lines);
+        update_completions(cs, text, lines, first_selected);
         draw(&r, text, cs);
         break;
       }
 
       if (ev->keycode == XKeysymToKeycode(d, XK_Return)) {
         status = OK;
+	if (first_selected) {
+	  complete(cs, first_selected, false, text, textlen, status);
+	}
         break;
       }
 
@@ -1056,18 +1123,18 @@ int main() {
       if (ev->state & ControlMask) {
         // check for some key bindings
         if (!strcmp(str, "")) { // C-u
-          nothing_selected = true;
+          nothing_selected = first_selected;
           for (int i = 0; i < textlen; ++i)
             text[i] = 0;
-          update_completions(cs, text, lines);
+          update_completions(cs, text, lines, first_selected);
         }
         if (!strcmp(str, "")) { // C-h
-          nothing_selected = true;
+          nothing_selected = first_selected;
           popc(text, textlen);
-          update_completions(cs, text, lines);
+          update_completions(cs, text, lines, first_selected);
         }
         if (!strcmp(str, "")) { // C-w
-          nothing_selected = true;
+          nothing_selected = first_selected;
 
           // `textlen` is the length of the allocated string, not the
           // length of the ACTUAL string
@@ -1085,10 +1152,13 @@ int main() {
             text[p] = 0;
             p--;
           }
-          update_completions(cs, text, lines);
+          update_completions(cs, text, lines, first_selected);
         }
         if (!strcmp(str, "\r")) { // C-m
           status = OK;
+	  if (first_selected) {
+	    complete(cs, first_selected, false, text, textlen, status);
+	  }
         }
         if (!strcmp(str, "")) {
           complete(cs, nothing_selected, true, text, textlen, status);
@@ -1108,8 +1178,8 @@ int main() {
           status = ERR;
           break;
         }
-        nothing_selected = true;
-        update_completions(cs, text, lines);
+        nothing_selected = first_selected;
+        update_completions(cs, text, lines, first_selected);
       }
 
     }
@@ -1121,29 +1191,8 @@ int main() {
     }
   }
 
-  release_keyboard(d);
-
   if (status == OK)
     printf("%s\n", text);
 
-  for (int i = 0; i < nlines; ++i) {
-    free(lines[i]);
-  }
-
-#ifdef USE_XFT
-    XftColorFree(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &r.xft_prompt);
-    XftColorFree(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &r.xft_completion);
-    XftColorFree(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &r.xft_completion_highlighted);
-#endif
-
-  free(ps1);
-  free(fontname);
-  free(text);
-  free(lines);
-  compl_delete(cs);
-
-  XDestroyWindow(d, w);
-  XCloseDisplay(d);
-
-  return status == OK ? 0 : 1;
+  return exit_cleanup(&r, ps1, fontname, text, lines, cs, status == OK ? 0 : 1);
 }
