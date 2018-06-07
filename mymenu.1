@@ -12,12 +12,15 @@ utility a simple graphical menu for XOrg. It read the items from
 and print the user selection to
 .Ic stdout
 on exit.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl a
+The first completion (if any) is always selected. This is like dmenu
+.El
 .Sh RESOURCES
 
-Most of the appearance of the menu is defined through the \fBX
-Resource Database\fR.
-
-Application specific resources:
+The appearance of the menu is defined through the \fBX Resource
+Database\fR.
 .Bl -tag -width Ds
 .It MyMenu.font
 The font name to use. By default is set to "fixed" if compiled without
