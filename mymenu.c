@@ -23,6 +23,10 @@
 # include <X11/Xft/Xft.h>
 #endif
 
+#ifndef VERSION
+# define VERSION "unknown"
+#endif
+
 #define nil NULL
 #define resname "MyMenu"
 #define resclass "mymenu"
@@ -704,13 +708,16 @@ int main(int argc, char **argv) {
 
   // parse the command line options
   int ch;
-  while ((ch = getopt(argc, argv, "ah")) != -1) {
+  while ((ch = getopt(argc, argv, "ahv")) != -1) {
     switch (ch) {
     case 'a':
       first_selected = true;
       break;
     case 'h':
       usage(*argv);
+      return 0;
+    case 'v':
+      fprintf(stderr, "%s version: %s\n", *argv, VERSION);
       return 0;
     default:
       usage(*argv);

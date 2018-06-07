@@ -15,7 +15,11 @@ on exit.
 .Sh OPTIONS
 .Bl -tag -width Ds
 .It Fl a
-The first completion (if any) is always selected. This is like dmenu
+The first completion (if any) is always selected. This is like dmenu.
+.It Fl h
+Print a small usage message to stderr.
+.It Fl v
+Print version and exit.
 .El
 .Sh RESOURCES
 
@@ -113,8 +117,9 @@ whole UTF-8 support is still kinda naïve and should be improved.
 
 .Sh EXIT STATUS
 
-0 when the user select an entry, 1 when the user press Esc and
-EX_UNAVAILABLE if the connection to X fails.
+0 when the user select an entry, 1 when the user press Esc, EX_USAGE
+if used with wrong flags and EX_UNAVAILABLE if the connection to X
+fails.
 
 .Sh SEE ALSO
 .Xr dmenu 1
