@@ -14,8 +14,11 @@ CFLAGS 	 = ${CDEFS} -DVERSION=\"$(VERSION)\" `pkg-config --cflags x11 ${OPTIONAL
 
 all: mymenu
 
-mymenu: mymenu.c
+mymenu: mymenu.c mymenu.1.md
 	$(CC) $(CFLAGS) mymenu.c -o mymenu $(LIBS) ${OPTIM}
+
+mymenu.1.md: mymenu.1
+	mandoc -T markdown mymenu.1 > mymenu.1.md
 
 gnu: mymenu.c
 	make CDEFS="-D_GNU_SOURCE ${CDEFS}"
