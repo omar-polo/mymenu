@@ -14,24 +14,22 @@ This is a replacement for `dmenu(1)`.
 
 ## Why?
 
-This was the perfect excuse to learn how to make window with Xlib.
+This was the perfect excuse to learn how to use Xlib.
 
 ## How?
 
-Check out the [manpage](mymenu.1) for further documentation. Check out
-also the [template](Xexample) for the resources.
+Check out the [manpage](mymenu.1.md) for further documentation. Check
+out also the [template](Xexample) for the resources.
 
 ---
 
 ## Dependencies
 
  - Xlib
- - Xinerama (optional)
-   For multi-monitor support
- - Xft (optional)
-   For TrueType (r) font support
- - pkg-config (optional)
-   used in the makefile to generate `LIBS` and `CFLAGS` correctly
+ - Xinerama (optional) for multi-monitor support
+ - Xft (optional) for TrueType font support
+ - pkg-config (optional) used in the makefile to generate `LIBS` and
+   `CFLAGS` correctly
 
 ## Build
 
@@ -64,22 +62,22 @@ should be enough.
 
  - Will feature $X be added?
 
-   No. Or maybe Yes. In fact, it depends. Open an issue and let's
+   No. Or maybe yes. In fact, it depends. Open an issue and let's
    discuss. If it's something that's trivial to achieve in combo with
    other tool maybe is not the case to add it here.
 
  - Is feature $Y present? What $Z do? How to achieve $W?
 
-   Everything is documented in the man page. To read it, simply execute
-   `man -l mymenu.1` or `mandoc mymenu.1 | less` (depending on your
-   system the `-l` option may not be present).
+   Everything is documented in the [man page](mymenu.1.md). To read
+   it, simply execute `man -l mymenu.1` or `mandoc mymenu.1 | less`
+   (depending on your system the `-l` option may not be present).
 
 ---
 
 ## TODO
 
  - Improve UTF8 support
- 
+
    The whole UTF8 support is still kinda naïve and should definitely
    be improved.
 
