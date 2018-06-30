@@ -46,31 +46,6 @@
 # define strcasestr strstr
 #endif
 
-#define update_completions(cs, text, lines, first_selected) {	\
-    compl_delete_rec(cs);					\
-    cs = filter(text, lines);					\
-    if (first_selected && cs != nil) 				\
-      cs->selected = true;					\
-  }
-
-#define complete(cs, nothing_selected, p, text, textlen, status) {      \
-    struct completions *n = p                                           \
-      ? compl_select_prev(cs, nothing_selected)                         \
-      : compl_select_next(cs, nothing_selected);                        \
-                                                                        \
-    if (n != nil) {                                                     \
-      nothing_selected = false;                                         \
-      free(text);                                                       \
-      text = strdup(n->completion);                                     \
-      if (text == nil) {                                                \
-        fprintf(stderr, "Memory allocation error!\n");                  \
-        status = ERR;                                                   \
-        break;                                                          \
-      }                                                                 \
-      textlen = strlen(text);                                           \
-    }                                                                   \
-  }
-
 #define INITIAL_ITEMS 64
 
 #define cannot_allocate_memory {                        \
@@ -86,6 +61,17 @@
 enum state {LOOPING, OK, ERR};
 
 enum text_type {PROMPT, COMPL, COMPL_HIGH};
+
+enum action {
+  EXIT,
+  CONFIRM,
+  NEXT_COMPL,
+  PREV_COMPL,
+  DEL_CHAR,
+  DEL_WORD,
+  DEL_LINE,
+  ADD_CHAR
+};
 
 struct rendering {
   Display *d;
@@ -119,6 +105,7 @@ struct completions {
   struct completions *next;
 };
 
+// return a newly allocated (and empty) completion list
 struct completions *compl_new() {
   struct completions *c = malloc(sizeof(struct completions));
 
@@ -131,10 +118,12 @@ struct completions *compl_new() {
   return c;
 }
 
+// delete ONLY the given completion (i.e. does not free c->next...)
 void compl_delete(struct completions *c) {
   free(c);
 }
 
+// delete all completion
 void compl_delete_rec(struct completions *c) {
   while (c != nil) {
     struct completions *t = c->next;
@@ -143,6 +132,7 @@ void compl_delete_rec(struct completions *c) {
   }
 }
 
+// given a completion list, select the next completion
 struct completions *compl_select_next(struct completions *c, bool n) {
   if (c == nil)
     return nil;
@@ -171,6 +161,7 @@ struct completions *compl_select_next(struct completions *c, bool n) {
   return nil;
 }
 
+// given a completion list, select the previous
 struct completions *compl_select_prev(struct completions *c, bool n) {
   if (c == nil)
     return nil;
@@ -200,6 +191,7 @@ struct completions *compl_select_prev(struct completions *c, bool n) {
   return nil;
 }
 
+// create a completion list from a text and the list of possible completions
 struct completions *filter(char *text, char **lines) {
   int i = 0;
   struct completions *root = compl_new();
@@ -230,6 +222,38 @@ struct completions *filter(char *text, char **lines) {
   return r;
 }
 
+// update the given completion, that is: clean the old cs & generate a new one.
+struct completions *update_completions(struct completions *cs, char *text, char **lines, bool first_selected) {
+  compl_delete_rec(cs);
+  cs = filter(text, lines);
+  if (first_selected && cs != nil)
+    cs->selected = true;
+  return cs;
+}
+
+// select the next, or the previous, selection and update some
+// state. `nothing_selected' will be updated if a new completion is
+// marked as selected, `text' will be updated with the text of the
+// completion and `textlen' with the new lenght of `text'. If the
+// memory cannot be allocated, `status' will be set to `ERR'.
+void complete(struct completions *cs, bool *nothing_selected, bool p, char **text, int *textlen, enum state *status) {
+  struct completions *n = p
+    ? compl_select_prev(cs, *nothing_selected)
+    : compl_select_next(cs, *nothing_selected);
+
+  if (n != nil) {
+    *nothing_selected = false;
+    free(*text);
+    *text = strdup(n->completion);
+    if (text == nil) {
+      fprintf(stderr, "Memory allocation error!\n");
+      *status = ERR;
+      return;
+    }
+    *textlen = strlen(*text);
+  }
+}
+
 // push the character c at the end of the string pointed by p
 int pushc(char **p, int maxlen, char c) {
   int len = strnlen(*p, maxlen);
@@ -248,6 +272,7 @@ int pushc(char **p, int maxlen, char c) {
   return maxlen;
 }
 
+// return the number of character
 int utf8strnlen(char *s, int maxlen) {
   int len = 0;
   while (*s && maxlen > 0) {
@@ -260,7 +285,7 @@ int utf8strnlen(char *s, int maxlen) {
 // remove the last *glyph* from the *utf8* string!
 // this is different from just setting the last byte to 0 (in some
 // cases ofc). The actual implementation is quite inefficient because
-// it remove the last char until the number of glyphs doesn't change
+// it remove the last byte until the number of glyphs doesn't change
 void popc(char *p, int maxlen) {
   int len = strnlen(p, maxlen);
 
@@ -617,21 +642,12 @@ int take_keyboard(Display *d, Window w) {
   return 0;
 }
 
+// release the keyboard.
 void release_keyboard(Display *d) {
   XUngrabKeyboard(d, CurrentTime);
 }
 
 int parse_integer(const char *str, int default_value) {
-  /* int len = strlen(str); */
-  /* if (len > 0 && str[len-1] == '%') { */
-  /*   char *cpy = strdup(str); */
-  /*   check_allocation(cpy); */
-  /*   cpy[len-1] = '\0'; */
-  /*   int val = parse_integer(cpy, default_value, max); */
-  /*   free(cpy); */
-  /*   return val * max / 100; */
-  /* } */
-
   errno = 0;
   char *ep;
   long lval = strtol(str, &ep, 10);
@@ -647,6 +663,8 @@ int parse_integer(const char *str, int default_value) {
   return lval;
 }
 
+// like parse_integer, but if the value ends with a `%' then its
+// treated like a percentage (`max' is used to compute the percentage)
 int parse_int_with_percentage(const char *str, int default_value, int max) {
   int len = strlen(str);
   if (len > 0 && str[len-1] == '%') {
@@ -660,6 +678,8 @@ int parse_int_with_percentage(const char *str, int default_value, int max) {
   return parse_integer(str, default_value);
 }
 
+// like parse_int_with_percentage but understands the special value
+// "middle" that is (max - self) / 2
 int parse_int_with_middle(const char *str, int default_value, int max, int self) {
   if (!strcmp(str, "middle")) {
     return (max - self)/2;
@@ -667,6 +687,7 @@ int parse_int_with_middle(const char *str, int default_value, int max, int self)
   return parse_int_with_percentage(str, default_value, max);
 }
 
+// Given the name of the program (argv[0]?) print a small help on stderr
 void usage(char *prgname) {
   fprintf(stderr, "Usage: %s [flags]\n", prgname);
   fprintf(stderr, "\t-a: automatic mode, the first completion is "
@@ -674,6 +695,59 @@ void usage(char *prgname) {
   fprintf(stderr, "\t-h: print this help.\n");
 }
 
+// Given an event, try to understand what the user wants. If the
+// return value is ADD_CHAR then `input' is a pointer to a string that
+// will need to be free'ed.
+enum action parse_event(Display *d, XKeyPressedEvent *ev, XIC xic, char **input) {
+  if (ev->keycode == XKeysymToKeycode(d, XK_BackSpace))
+    return DEL_CHAR;
+
+  if (ev->keycode == XKeysymToKeycode(d, XK_Tab))
+    return ev->state & ShiftMask ? PREV_COMPL : NEXT_COMPL;
+
+  if (ev->keycode == XKeysymToKeycode(d, XK_Return))
+    return CONFIRM;
+
+  if (ev->keycode == XKeysymToKeycode(d, XK_Escape))
+    return EXIT;
+
+  // try to read what the user pressed
+  int symbol = 0;
+  Status s = 0;
+  Xutf8LookupString(xic, ev, (char*)&symbol, 4, 0, &s);
+  if (s == XBufferOverflow) {
+    // should not happen since there are no utf-8 characters larger
+    // than 24bits
+    fprintf(stderr, "Buffer overflow when trying to create keyboard symbol map.\n");
+    return EXIT;
+  }
+  char *str = (char*)&symbol;
+
+  if (ev->state & ControlMask) {
+    if (!strcmp(str, "")) // C-u
+      return DEL_LINE;
+    if (!strcmp(str, "")) // C-w
+      return DEL_WORD;
+    if (!strcmp(str, "")) // C-h
+      return DEL_CHAR;
+    if (!strcmp(str, "\r")) // C-m
+      return CONFIRM;
+    if (!strcmp(str, "")) // C-p
+      return PREV_COMPL;
+    if (!strcmp(str, "")) // C-n
+      return NEXT_COMPL;
+  }
+
+  *input = strdup((char*)&symbol);
+  if (*input == nil) {
+    fprintf(stderr, "Error while allocating memory for key.\n");
+    return EXIT;
+  }
+
+  return ADD_CHAR;
+}
+
+// clean up some resources
 int exit_cleanup(struct rendering *r, char *ps1, char *fontname, char *text, char **lines, struct completions *cs, int status) {
   release_keyboard(r->d);
 
@@ -760,7 +834,7 @@ int main(int argc, char **argv) {
   bool nothing_selected = first_selected;
   /* struct completions *cs = filter(text, lines); */
   struct completions *cs = nil;
-  update_completions(cs, text, lines, first_selected);
+  cs = update_completions(cs, text, lines, first_selected);
 
   // start talking to xorg
   Display *d = XOpenDisplay(nil);
@@ -1085,110 +1159,84 @@ int main(int argc, char **argv) {
     case KeyPress: {
       XKeyPressedEvent *ev = (XKeyPressedEvent*)&e;
 
-      if (ev->keycode == XKeysymToKeycode(d, XK_Tab)) {
-        bool shift = (ev->state & ShiftMask);
-        complete(cs, nothing_selected, shift, text, textlen, status);
-        draw(&r, text, cs);
-        break;
-      }
+      char *input;
+      switch (parse_event(d, ev, xic, &input)) {
+      case EXIT:
+	status = ERR;
+	break;
 
-      if (ev->keycode == XKeysymToKeycode(d, XK_BackSpace)) {
-        nothing_selected = first_selected;
-        popc(text, textlen);
-        update_completions(cs, text, lines, first_selected);
-        draw(&r, text, cs);
-        break;
-      }
-
-      if (ev->keycode == XKeysymToKeycode(d, XK_Return)) {
-        status = OK;
+      case CONFIRM:
+	status = OK;
 	if (first_selected) {
-	  complete(cs, first_selected, false, text, textlen, status);
+	  complete(cs, &first_selected, false, &text, &textlen, &status);
 	}
-        break;
+	break;
+
+      case PREV_COMPL: {
+	complete(cs, &nothing_selected, true, &text, &textlen, &status);
+	break;
       }
 
-      if (ev->keycode == XKeysymToKeycode(d, XK_Escape)) {
-        status = ERR;
-        break;
+      case NEXT_COMPL: {
+	complete(cs, &nothing_selected, false, &text, &textlen, &status);
+	break;
       }
 
-      // try to read what the user pressed
-      int symbol = 0;
-      Status s = 0;
-      Xutf8LookupString(xic, ev, (char*)&symbol, 4, 0, &s);
+      case DEL_CHAR:
+	nothing_selected = first_selected;
+	popc(text, textlen);
+	cs = update_completions(cs, text, lines, first_selected);
+	break;
 
-      if (s == XBufferOverflow) {
-        // should not happen since there are no utf-8 characters
-        // larger than 24bits, but is something to be aware of when
-        // used to directly write to a string buffer
-        fprintf(stderr, "Buffer overflow when trying to create keyboard symbol map.\n");
-        break;
+      case DEL_WORD: {
+	nothing_selected = first_selected;
+
+	// `textlen` is the lenght of the allocated string, not the
+	// lenght of the ACTUAL string
+	int p = strlen(text) -1;
+	if (p > 0) { // delete the current char
+	  text[p] = 0;
+	  p--;
+	}
+
+	// erase the alphanumeric char
+	while (p >= 0 && isalnum(text[p])) {
+	  text[p] = 0;
+	  p--;
+	}
+
+	// erase also trailing white spaces
+	while (p >= 0 && isspace(text[p])) {
+	  text[p] = 0;
+	  p--;
+	}
+	cs = update_completions(cs, text, lines, first_selected);
+	break;
       }
-      char *str = (char*)&symbol;
 
-      if (ev->state & ControlMask) {
-        // check for some key bindings
-        if (!strcmp(str, "")) { // C-u
-          nothing_selected = first_selected;
-          for (int i = 0; i < textlen; ++i)
-            text[i] = 0;
-          update_completions(cs, text, lines, first_selected);
-        }
-        if (!strcmp(str, "")) { // C-h
-          nothing_selected = first_selected;
-          popc(text, textlen);
-          update_completions(cs, text, lines, first_selected);
-        }
-        if (!strcmp(str, "")) { // C-w
-          nothing_selected = first_selected;
+      case DEL_LINE: {
+	nothing_selected = first_selected;
+	for (int i = 0; i < textlen; ++i)
+	  text[i] = 0;
+	cs = update_completions(cs, text, lines, first_selected);
+	break;
+      }
 
-          // `textlen` is the length of the allocated string, not the
-          // length of the ACTUAL string
-          int p = strlen(text) - 1;
-          if (p >= 0) { // delete the current char
-            text[p] = 0;
-            p--;
-          }
-          while (p >= 0 && isalnum(text[p])) {
-            text[p] = 0;
-            p--;
-          }
-          // erase also trailing white space
-          while (p >= 0 && isspace(text[p])) {
-            text[p] = 0;
-            p--;
-          }
-          update_completions(cs, text, lines, first_selected);
-        }
-        if (!strcmp(str, "\r")) { // C-m
-          status = OK;
-	  if (first_selected) {
-	    complete(cs, first_selected, false, text, textlen, status);
+      case ADD_CHAR: {
+	int str_len = strlen(input);
+	for (int i = 0; i < str_len; ++i) {
+	  textlen = pushc(&text, textlen, input[i]);
+	  if (textlen == -1) {
+	    fprintf(stderr, "Memory allocation error\n");
+	    status = ERR;
+	    break;
 	  }
-        }
-        if (!strcmp(str, "")) {
-          complete(cs, nothing_selected, true, text, textlen, status);
-        }
-        if (!strcmp(str, "")) {
-          complete(cs, nothing_selected, false, text, textlen, status);
-        }
-        draw(&r, text, cs);
-        break;
+	  nothing_selected = first_selected;
+	  cs = update_completions(cs, text, lines, first_selected);
+	  free(input);
+	}
       }
-
-      int str_len = strlen(str);
-      for (int i = 0; i < str_len; ++i) {
-        textlen = pushc(&text, textlen, str[i]);
-        if (textlen == -1) {
-          fprintf(stderr, "Memory allocation error\n");
-          status = ERR;
-          break;
-        }
-        nothing_selected = first_selected;
-        update_completions(cs, text, lines, first_selected);
       }
-
     }
       draw(&r, text, cs);
       break;
