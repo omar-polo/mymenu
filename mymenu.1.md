@@ -112,9 +112,17 @@ MyMenu.completion\_highlighted.foreground
 
 # KEYS
 
+This is the list of keybinding recognized by
+**mymenu**.
+In the following examples, C-c means Control-c.
+
 Esc
 
 > Close the menu without selecting any entry
+
+C-c
+
+> The same as Esc
 
 Enter
 
@@ -181,4 +189,4 @@ sysexits(3)
 
 Omar Polo &lt;omar.polo@europecom.net&gt;
 
-OpenBSD 6.3 - June 14, 2018
+OpenBSD 6.3 - July 1, 2018

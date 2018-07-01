@@ -783,6 +783,8 @@ enum action parse_event(Display *d, XKeyPressedEvent *ev, XIC xic, char **input)
       return PREV_COMPL;
     if (!strcmp(str, "")) // C-n
       return NEXT_COMPL;
+    if (!strcmp(str, "")) // C-c
+      return EXIT;
   }
 
   *input = strdup((char*)&symbol);
