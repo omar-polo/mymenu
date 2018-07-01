@@ -6,22 +6,24 @@ CDEFS    = -DUSE_XINERAMA -DUSE_XFT -DUSE_STRCASESTR
 
 # you may not want to change these
 CC	 ?= cc
-LIBS	 = `pkg-config --libs x11 ${OPTIONAL}`
+LIBS	 = `pkg-config --libs x11 $(OPTIONAL)`
 OPTIM    = -O3
-CFLAGS 	 = ${CDEFS} -DVERSION=\"$(VERSION)\" `pkg-config --cflags x11 ${OPTIONAL}`
+CFLAGS 	 = $(CDEFS) -DVERSION=\"$(VERSION)\" `pkg-config --cflags x11 $(OPTIONAL)`
 
-.PHONY: all clean install debug no_xft no_xinerama no_xft_xinerama gnu
+.PHONY: all clean install debug no_xft no_xinerama no_xft_xinerama gnu manpage
 
 all: mymenu
 
-mymenu: mymenu.c mymenu.1.md
-	$(CC) $(CFLAGS) mymenu.c -o mymenu $(LIBS) ${OPTIM}
+mymenu: mymenu.c
+	$(CC) $(CFLAGS) mymenu.c -o mymenu $(LIBS) $(OPTIM)
+
+manpage: mymenu.1.md
 
 mymenu.1.md: mymenu.1
 	mandoc -T markdown mymenu.1 > mymenu.1.md
 
 gnu: mymenu.c
-	make CDEFS="-D_GNU_SOURCE ${CDEFS}"
+	make CDEFS="-D_GNU_SOURCE $(CDEFS)"
 
 debug:
 	make OPTIM="-g -O0 -Wall"

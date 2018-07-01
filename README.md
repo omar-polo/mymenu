@@ -26,10 +26,11 @@ out also the [template](Xexample) for the resources.
 ## Dependencies
 
  - Xlib
- - Xinerama (optional) for multi-monitor support
- - Xft (optional) for TrueType font support
- - pkg-config (optional) used in the makefile to generate `LIBS` and
-   `CFLAGS` correctly
+ - Xinerama *(optional)* for multi-monitor support
+ - Xft *(optional)* for TrueType font support
+ - pkg-config *(optional)* to generate `LIBS` and `CFLAGS`
+ - mandoc *(optional)* to generate the
+   [markdown version of the manpage](mymenu.1.md)
 
 ## Build
 
@@ -40,6 +41,9 @@ want to run:
   - `make no_xft` to build without xft support;
   - `make no_xinerama` to build without xinerama support;
   - `make no_xft_xinerama` to build without xinerama *and* no xft support.
+
+Or you can update the first lines of the `Makefile` customizing
+`OPTIONAL` and `CDEFS` to your needs.
 
 #### ignore case completion / don't have `strcasestr(3)`
 
