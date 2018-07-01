@@ -27,7 +27,9 @@
 # define VERSION "unknown"
 #endif
 
+// Comfy
 #define nil NULL
+
 #define resname "MyMenu"
 #define resclass "mymenu"
 
@@ -58,10 +60,14 @@
       cannot_allocate_memory;     \
   }
 
+// The possible state of the event loop.
 enum state {LOOPING, OK, ERR};
 
+// for the drawing-related function. The text to be rendered could be
+// the prompt, a completion or a highlighted completion
 enum text_type {PROMPT, COMPL, COMPL_HIGH};
 
+// These are the possible action to be performed after user input.
 enum action {
   EXIT,
   CONFIRM,
@@ -99,6 +105,7 @@ struct rendering {
 #endif
 };
 
+// A simple linked list to store the completions.
 struct completions {
   char *completion;
   bool selected;
@@ -197,27 +204,6 @@ struct completions *compl_select_prev(struct completions *c) {
   if (c != nil)
     c->selected = true;
   return c;
-
-  /* if (n || c->selected) { // select the last one */
-  /*   c->selected = false; */
-  /*   while (cc != nil) { */
-  /*     if (cc->next == nil) { */
-  /*       cc->selected = true; */
-  /*       return cc; */
-  /*     } */
-  /*     cc = cc->next; */
-  /*   } */
-  /* } */
-  /* else // select the previous one */
-  /*   while (cc != nil) { */
-  /*     if (cc->next != nil && cc->next->selected) { */
-  /*       cc->next->selected = false; */
-  /*       cc->selected = true; */
-  /*       return cc; */
-  /*     } */
-  /*     cc = cc->next; */
-  /*   } */
-  /* return nil; */
 }
 
 // create a completion list from a text and the list of possible completions
@@ -265,7 +251,6 @@ struct completions *update_completions(struct completions *cs, char *text, char 
 // `textlen' with the new lenght of `text'. If the memory cannot be
 // allocated, `status' will be set to `ERR'.
 void complete(struct completions *cs, bool first_selected, bool p, char **text, int *textlen, enum state *status) {
-
   // if the first is always selected, and the first entry is different
   // from the text, expand the text and return
   if (first_selected
@@ -669,6 +654,8 @@ void set_win_atoms_hints(Display *d, Window w, int width, int height) {
   XFlush(d);
 }
 
+// write the width and height of the window `w' respectively in `width'
+// and `height'.
 void get_wh(Display *d, Window *w, int *width, int *height) {
   XWindowAttributes win_attr;
   XGetWindowAttributes(d, *w, &win_attr);
@@ -694,6 +681,8 @@ void release_keyboard(Display *d) {
   XUngrabKeyboard(d, CurrentTime);
 }
 
+// Given a string, try to parse it as a number or return
+// `default_value'.
 int parse_integer(const char *str, int default_value) {
   errno = 0;
   char *ep;
