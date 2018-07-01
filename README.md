@@ -1,6 +1,6 @@
 # MyMenu
 
-> A replacement for dmenu, 'cause I was bored
+> A menu for Xorg, 'cause I was bored
 
 ![MyMenu works!](screen.png)
 
@@ -10,7 +10,7 @@
 
 ## What?
 
-This is a replacement for `dmenu(1)`.
+This is a simple menu for Xorg, like `dmenu(1)`.
 
 ## Why?
 
