@@ -132,14 +132,11 @@ void compl_delete_rec(struct completions *c) {
   }
 }
 
-// given a completion list, select the next completion
-struct completions *compl_select_next(struct completions *c, bool n) {
+// given a completion list, select the next completion and return the
+// element that is selected
+struct completions *compl_select_next(struct completions *c) {
   if (c == nil)
     return nil;
-  if (n) {
-    c->selected = true;
-    return c;
-  }
 
   struct completions *orig = c;
   while (c != nil) {
@@ -150,7 +147,7 @@ struct completions *compl_select_next(struct completions *c, bool n) {
         c->next->selected = true;
         return c->next;
       } else {
-        // the current one is selected and the next one is nill,
+        // the current one is selected and the next one is nil,
         // select the first one
         orig->selected = true;
         return orig;
@@ -158,37 +155,69 @@ struct completions *compl_select_next(struct completions *c, bool n) {
     }
     c = c->next;
   }
-  return nil;
+
+  orig->selected = true;
+  return orig;
 }
 
-// given a completion list, select the previous
-struct completions *compl_select_prev(struct completions *c, bool n) {
+// given a completion list, select the previous and return the element
+// that is selected
+struct completions *compl_select_prev(struct completions *c) {
   if (c == nil)
     return nil;
 
-  struct completions *cc = c;
+  struct completions *last = nil;
 
-  if (n || c->selected) { // select the last one
+  if (c->selected) { // if the first is selected, select the last one
     c->selected = false;
-    while (cc != nil) {
-      if (cc->next == nil) {
-        cc->selected = true;
-        return cc;
+    while (c != nil) {
+      if (c->next == nil) {
+	c->selected = true;
+	return c;
       }
-      cc = cc->next;
+      c = c->next;
     }
   }
-  else // select the previous one
-    while (cc != nil) {
-      if (cc->next != nil && cc->next->selected) {
-        cc->next->selected = false;
-        cc->selected = true;
-        return cc;
-      }
-      cc = cc->next;
+
+  // if the selected one is inside the list, select the previous one
+  while (c != nil) {
+    if (c->next == nil) { // if c is the last, save it for later
+      last = c;
     }
 
-  return nil;
+    if (c->next && c->next->selected) {
+      c->selected = true;
+      c->next->selected = false;
+      return c;
+    }
+    c = c->next;
+  }
+
+  // if nothing were selected, select the last one
+  if (c != nil)
+    c->selected = true;
+  return c;
+
+  /* if (n || c->selected) { // select the last one */
+  /*   c->selected = false; */
+  /*   while (cc != nil) { */
+  /*     if (cc->next == nil) { */
+  /*       cc->selected = true; */
+  /*       return cc; */
+  /*     } */
+  /*     cc = cc->next; */
+  /*   } */
+  /* } */
+  /* else // select the previous one */
+  /*   while (cc != nil) { */
+  /*     if (cc->next != nil && cc->next->selected) { */
+  /*       cc->next->selected = false; */
+  /*       cc->selected = true; */
+  /*       return cc; */
+  /*     } */
+  /*     cc = cc->next; */
+  /*   } */
+  /* return nil; */
 }
 
 // create a completion list from a text and the list of possible completions
@@ -232,17 +261,34 @@ struct completions *update_completions(struct completions *cs, char *text, char 
 }
 
 // select the next, or the previous, selection and update some
-// state. `nothing_selected' will be updated if a new completion is
-// marked as selected, `text' will be updated with the text of the
-// completion and `textlen' with the new lenght of `text'. If the
-// memory cannot be allocated, `status' will be set to `ERR'.
-void complete(struct completions *cs, bool *nothing_selected, bool p, char **text, int *textlen, enum state *status) {
+// state. `text' will be updated with the text of the completion and
+// `textlen' with the new lenght of `text'. If the memory cannot be
+// allocated, `status' will be set to `ERR'.
+void complete(struct completions *cs, bool first_selected, bool p, char **text, int *textlen, enum state *status) {
+
+  // if the first is always selected, and the first entry is different
+  // from the text, expand the text and return
+  if (first_selected
+      && cs != nil
+      && cs->selected
+      && strcmp(cs->completion, *text) != 0
+      && !p) {
+    free(*text);
+    *text = strdup(cs->completion);
+    if (text == nil) {
+      fprintf(stderr, "Memory allocation error!\n");
+      *status = ERR;
+      return;
+    }
+    *textlen = strlen(*text);
+    return;
+  }
+
   struct completions *n = p
-    ? compl_select_prev(cs, *nothing_selected)
-    : compl_select_next(cs, *nothing_selected);
+    ? compl_select_prev(cs)
+    : compl_select_next(cs);
 
   if (n != nil) {
-    *nothing_selected = false;
     free(*text);
     *text = strdup(n->completion);
     if (text == nil) {
@@ -252,6 +298,7 @@ void complete(struct completions *cs, bool *nothing_selected, bool p, char **tex
     }
     *textlen = strlen(*text);
   }
+
 }
 
 // push the character c at the end of the string pointed by p
@@ -831,7 +878,6 @@ int main(int argc, char **argv) {
   char *text = malloc(textlen * sizeof(char));
   check_allocation(text);
 
-  bool nothing_selected = first_selected;
   /* struct completions *cs = filter(text, lines); */
   struct completions *cs = nil;
   cs = update_completions(cs, text, lines, first_selected);
@@ -1168,29 +1214,26 @@ int main(int argc, char **argv) {
       case CONFIRM:
 	status = OK;
 	if (first_selected) {
-	  complete(cs, &first_selected, false, &text, &textlen, &status);
+	  complete(cs, first_selected, false, &text, &textlen, &status);
 	}
 	break;
 
       case PREV_COMPL: {
-	complete(cs, &nothing_selected, true, &text, &textlen, &status);
+	complete(cs, first_selected, true, &text, &textlen, &status);
 	break;
       }
 
       case NEXT_COMPL: {
-	complete(cs, &nothing_selected, false, &text, &textlen, &status);
+	complete(cs, first_selected, false, &text, &textlen, &status);
 	break;
       }
 
       case DEL_CHAR:
-	nothing_selected = first_selected;
 	popc(text, textlen);
 	cs = update_completions(cs, text, lines, first_selected);
 	break;
 
       case DEL_WORD: {
-	nothing_selected = first_selected;
-
 	// `textlen` is the lenght of the allocated string, not the
 	// lenght of the ACTUAL string
 	int p = strlen(text) -1;
@@ -1215,7 +1258,6 @@ int main(int argc, char **argv) {
       }
 
       case DEL_LINE: {
-	nothing_selected = first_selected;
 	for (int i = 0; i < textlen; ++i)
 	  text[i] = 0;
 	cs = update_completions(cs, text, lines, first_selected);
@@ -1231,7 +1273,6 @@ int main(int argc, char **argv) {
 	    status = ERR;
 	    break;
 	  }
-	  nothing_selected = first_selected;
 	  cs = update_completions(cs, text, lines, first_selected);
 	  free(input);
 	}
