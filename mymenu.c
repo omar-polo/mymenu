@@ -1204,8 +1204,17 @@ int main(int argc, char **argv) {
 
       case CONFIRM:
 	status = OK;
-	if (first_selected) {
-	  complete(cs, first_selected, false, &text, &textlen, &status);
+
+	// if first_selected is active and the first completion is
+	// active be sure to 'expand' the text to match the selection
+	if (first_selected && cs->selected) {
+	  free(text);
+	  text = strdup(cs->completion);
+	  if (text == nil) {
+	    fprintf(stderr, "Memory allocation error");
+	    status = ERR;
+	  }
+	  textlen = strlen(text);
 	}
 	break;
 
@@ -1268,14 +1277,17 @@ int main(int argc, char **argv) {
 	  free(input);
 	}
       }
-      }
-    }
-      draw(&r, text, cs);
+
       break;
+      }
+
+    }
 
     default:
       fprintf(stderr, "Unknown event %d\n", e.type);
     }
+
+    draw(&r, text, cs);
   }
 
   if (status == OK)
