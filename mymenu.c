@@ -815,6 +815,12 @@ int exit_cleanup(struct rendering *r, char *ps1, char *fontname, char *text, cha
 }
 
 int main(int argc, char **argv) {
+#ifdef HAVE_PLEDGE
+  // stdio & rpat: to read and write stdio/stdout
+  // unix:         to connect to Xorg
+  pledge("stdio rpath unix", "");
+#endif
+
   // by default the first completion isn't selected
   bool first_selected = false;
 

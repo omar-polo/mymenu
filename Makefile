@@ -4,6 +4,9 @@ VERSION = 0.1
 OPTIONAL = xinerama xft
 CDEFS    = -DUSE_XINERAMA -DUSE_XFT -DUSE_STRCASESTR
 
+# decomment if you're using OpenBSD to add pledge(2) support
+#CDEFS    += -DHAVE_PLEDGE
+
 # you may not want to change these
 CC	 ?= cc
 LIBS	 = `pkg-config --libs x11 $(OPTIONAL)`
