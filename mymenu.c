@@ -993,7 +993,7 @@ int main(int argc, char **argv) {
     if (XrmGetResource(xdb, "MyMenu.padding", "*", datatype, &value) == true)
       padding = parse_integer(value.addr, padding);
     else
-      fprintf(stderr, "no y defined, using %d\n", padding);
+      fprintf(stderr, "no padding defined, using %d\n", padding);
 
     XColor tmp;
     // TODO: tmp needs to be free'd after every allocation?
