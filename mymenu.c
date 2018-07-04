@@ -1213,7 +1213,7 @@ int main(int argc, char **argv) {
 
 	// if first_selected is active and the first completion is
 	// active be sure to 'expand' the text to match the selection
-	if (first_selected && cs->selected) {
+	if (first_selected && cs && cs->selected) {
 	  free(text);
 	  text = strdup(cs->completion);
 	  if (text == nil) {
