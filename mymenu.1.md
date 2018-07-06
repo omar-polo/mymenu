@@ -164,6 +164,15 @@ C-u
 
 > Delete the whole line
 
+C-i
+
+> Toggle the \`\`first selected'' style. Sometimes, especially with the -a
+> option, could be handy to disable that behaviour. Let's say that
+> you've typed \`\`fire'' and the first completion is \`\`firefox'' but you
+> really want to choose \`\`fire''. While you can type some spaces, this
+> keybinding is a more elegant way to change, at runtime, the behaviour
+> of the first completion.
+
 # BUGS
 
 *	If, instead of a numeric value, a not-valid number that terminates
@@ -189,4 +198,4 @@ sysexits(3)
 
 Omar Polo &lt;omar.polo@europecom.net&gt;
 
-OpenBSD 6.3 - July 1, 2018
+OpenBSD 6.3 - July 6, 2018

@@ -73,7 +73,8 @@ enum action {
   DEL_CHAR,
   DEL_WORD,
   DEL_LINE,
-  ADD_CHAR
+  ADD_CHAR,
+  TOGGLE_FIRST_SELECTED
 };
 
 struct rendering {
@@ -771,6 +772,8 @@ enum action parse_event(Display *d, XKeyPressedEvent *ev, XIC xic, char **input)
       return NEXT_COMPL;
     if (!strcmp(str, "")) // C-c
       return EXIT;
+    if (!strcmp(str, "\t")) // C-i
+      return TOGGLE_FIRST_SELECTED;
   }
 
   *input = strdup((char*)&symbol);
@@ -1275,6 +1278,12 @@ int main(int argc, char **argv) {
             }
             break;
           }
+
+          case TOGGLE_FIRST_SELECTED:
+            first_selected = !first_selected;
+            if (cs)
+              cs->selected = !cs->selected;
+            break;
         }
       }
 
