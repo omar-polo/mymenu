@@ -50,14 +50,11 @@
 
 #define INITIAL_ITEMS 64
 
-#define cannot_allocate_memory {                        \
-    fprintf(stderr, "Could not allocate memory\n");     \
-    abort();                                            \
-  }
-
-#define check_allocation(a) {     \
-    if (a == nil)                 \
-      cannot_allocate_memory;     \
+#define check_allocation(a) {                         \
+    if (a == nil) {                                   \
+      fprintf(stderr, "Could not allocate memory\n"); \
+      abort();                                        \
+    }                                                 \
   }
 
 // The possible state of the event loop.
@@ -179,8 +176,8 @@ struct completions *compl_select_prev(struct completions *c) {
     c->selected = false;
     while (c != nil) {
       if (c->next == nil) {
-	c->selected = true;
-	return c;
+        c->selected = true;
+        return c;
       }
       c = c->next;
     }
@@ -727,7 +724,7 @@ int parse_int_with_middle(const char *str, int default_value, int max, int self)
 void usage(char *prgname) {
   fprintf(stderr, "Usage: %s [flags]\n", prgname);
   fprintf(stderr, "\t-a: automatic mode, the first completion is "
-                  "always selected;\n");
+          "always selected;\n");
   fprintf(stderr, "\t-h: print this help.\n");
 }
 
@@ -829,17 +826,17 @@ int main(int argc, char **argv) {
   while ((ch = getopt(argc, argv, "ahv")) != -1) {
     switch (ch) {
       case 'a':
-	first_selected = true;
-	break;
+        first_selected = true;
+        break;
       case 'h':
-	usage(*argv);
-	return 0;
+        usage(*argv);
+        return 0;
       case 'v':
-	fprintf(stderr, "%s version: %s\n", *argv, VERSION);
-	return 0;
+        fprintf(stderr, "%s version: %s\n", *argv, VERSION);
+        return 0;
       default:
-	usage(*argv);
-	return EX_USAGE;
+        usage(*argv);
+        return EX_USAGE;
     }
   }
 
@@ -1190,99 +1187,99 @@ int main(int argc, char **argv) {
 
     switch (e.type) {
       case KeymapNotify:
-	XRefreshKeyboardMapping(&e.xmapping);
-	break;
+        XRefreshKeyboardMapping(&e.xmapping);
+        break;
 
       case KeyPress: {
-	XKeyPressedEvent *ev = (XKeyPressedEvent*)&e;
+        XKeyPressedEvent *ev = (XKeyPressedEvent*)&e;
 
-	char *input;
-	switch (parse_event(d, ev, xic, &input)) {
-	  case EXIT:
-	    status = ERR;
-	    break;
+        char *input;
+        switch (parse_event(d, ev, xic, &input)) {
+          case EXIT:
+            status = ERR;
+            break;
 
-	  case CONFIRM:
-	    status = OK;
+          case CONFIRM:
+            status = OK;
 
-	    // if first_selected is active and the first completion is
-	    // active be sure to 'expand' the text to match the selection
-	    if (first_selected && cs && cs->selected) {
-	      free(text);
-	      text = strdup(cs->completion);
-	      if (text == nil) {
-		fprintf(stderr, "Memory allocation error");
-		status = ERR;
-	      }
-	      textlen = strlen(text);
-	    }
-	    break;
+            // if first_selected is active and the first completion is
+            // active be sure to 'expand' the text to match the selection
+            if (first_selected && cs && cs->selected) {
+              free(text);
+              text = strdup(cs->completion);
+              if (text == nil) {
+                fprintf(stderr, "Memory allocation error");
+                status = ERR;
+              }
+              textlen = strlen(text);
+            }
+            break;
 
-	  case PREV_COMPL: {
-	    complete(cs, first_selected, true, &text, &textlen, &status);
-	    break;
-	  }
+          case PREV_COMPL: {
+            complete(cs, first_selected, true, &text, &textlen, &status);
+            break;
+          }
 
-	  case NEXT_COMPL: {
-	    complete(cs, first_selected, false, &text, &textlen, &status);
-	    break;
-	  }
+          case NEXT_COMPL: {
+            complete(cs, first_selected, false, &text, &textlen, &status);
+            break;
+          }
 
-	  case DEL_CHAR:
-	    popc(text, textlen);
-	    cs = update_completions(cs, text, lines, first_selected);
-	    break;
+          case DEL_CHAR:
+            popc(text, textlen);
+            cs = update_completions(cs, text, lines, first_selected);
+            break;
 
-	  case DEL_WORD: {
-	    // `textlen` is the lenght of the allocated string, not the
-	    // lenght of the ACTUAL string
-	    int p = strlen(text) -1;
-	    if (p > 0) { // delete the current char
-	      text[p] = 0;
-	      p--;
-	    }
+          case DEL_WORD: {
+            // `textlen` is the lenght of the allocated string, not the
+            // lenght of the ACTUAL string
+            int p = strlen(text) -1;
+            if (p > 0) { // delete the current char
+              text[p] = 0;
+              p--;
+            }
 
-	    // erase the alphanumeric char
-	    while (p >= 0 && isalnum(text[p])) {
-	      text[p] = 0;
-	      p--;
-	    }
+            // erase the alphanumeric char
+            while (p >= 0 && isalnum(text[p])) {
+              text[p] = 0;
+              p--;
+            }
 
-	    // erase also trailing white spaces
-	    while (p >= 0 && isspace(text[p])) {
-	      text[p] = 0;
-	      p--;
-	    }
-	    cs = update_completions(cs, text, lines, first_selected);
-	    break;
-	  }
+            // erase also trailing white spaces
+            while (p >= 0 && isspace(text[p])) {
+              text[p] = 0;
+              p--;
+            }
+            cs = update_completions(cs, text, lines, first_selected);
+            break;
+          }
 
-	  case DEL_LINE: {
-	    for (int i = 0; i < textlen; ++i)
-	      text[i] = 0;
-	    cs = update_completions(cs, text, lines, first_selected);
-	    break;
-	  }
+          case DEL_LINE: {
+            for (int i = 0; i < textlen; ++i)
+              text[i] = 0;
+            cs = update_completions(cs, text, lines, first_selected);
+            break;
+          }
 
-	  case ADD_CHAR: {
-	    int str_len = strlen(input);
-	    for (int i = 0; i < str_len; ++i) {
-	      textlen = pushc(&text, textlen, input[i]);
-	      if (textlen == -1) {
-		fprintf(stderr, "Memory allocation error\n");
-		status = ERR;
-		break;
-	      }
-	      cs = update_completions(cs, text, lines, first_selected);
-	      free(input);
-	    }
-	    break;
-	  }
-	}
+          case ADD_CHAR: {
+            int str_len = strlen(input);
+            for (int i = 0; i < str_len; ++i) {
+              textlen = pushc(&text, textlen, input[i]);
+              if (textlen == -1) {
+                fprintf(stderr, "Memory allocation error\n");
+                status = ERR;
+                break;
+              }
+              cs = update_completions(cs, text, lines, first_selected);
+              free(input);
+            }
+            break;
+          }
+        }
       }
 
       default:
-	fprintf(stderr, "Unknown event %d\n", e.type);
+        fprintf(stderr, "Unknown event %d\n", e.type);
     }
 
     draw(&r, text, cs);
