@@ -33,6 +33,8 @@
 #define resname "MyMenu"
 #define resclass "mymenu"
 
+#define SYM_BUF_SIZE 4
+
 #ifdef USE_XFT
 # define default_fontname "monospace"
 #else
@@ -41,6 +43,9 @@
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
+
+// modulo operator
+#define mod(a, b) (a < 0 ? (a % b + b) : (a % b))
 
 // If we don't have it or we don't want an "ignore case" completion
 // style, fall back to `strstr(3)`
@@ -104,144 +109,108 @@ struct rendering {
 };
 
 // A simple linked list to store the completions.
-struct completions {
+struct completion {
   char *completion;
-  bool selected;
-  struct completions *next;
+  struct completion *next;
+};
+
+struct completions {
+  struct completion *completions;
+  int selected;
+  int lenght;
 };
 
 // return a newly allocated (and empty) completion list
-struct completions *compl_new() {
-  struct completions *c = malloc(sizeof(struct completions));
+struct completions *compls_new() {
+  struct completions *cs = malloc(sizeof(struct completions));
 
+  if (cs == nil)
+    return cs;
+
+  cs->completions = nil;
+  cs->selected = -1;
+  cs->lenght = 0;
+  return cs;
+}
+
+struct completion *compl_new() {
+  struct completion *c = malloc(sizeof(struct completion));
   if (c == nil)
     return c;
 
   c->completion = nil;
-  c->selected = false;
   c->next = nil;
   return c;
 }
 
 // delete ONLY the given completion (i.e. does not free c->next...)
-void compl_delete(struct completions *c) {
+void compl_delete(struct completion *c) {
   free(c);
 }
 
-// delete all completion
-void compl_delete_rec(struct completions *c) {
+// delete the current completion and the next (c->next) and so on...
+void compl_delete_rec(struct completion *c) {
   while (c != nil) {
-    struct completions *t = c->next;
+    struct completion *t = c->next;
     free(c);
     c = t;
   }
 }
 
-// given a completion list, select the next completion and return the
-// element that is selected
-struct completions *compl_select_next(struct completions *c) {
-  if (c == nil)
-    return nil;
+void compls_delete(struct completions *cs) {
+  if (cs == nil)
+    return;
 
-  struct completions *orig = c;
-  while (c != nil) {
-    if (c->selected) {
-      c->selected = false;
-      if (c->next != nil) {
-        // the current one is selected and the next one exists
-        c->next->selected = true;
-        return c->next;
-      } else {
-        // the current one is selected and the next one is nil,
-        // select the first one
-        orig->selected = true;
-        return orig;
-      }
-    }
-    c = c->next;
-  }
-
-  orig->selected = true;
-  return orig;
+  compl_delete_rec(cs->completions);
+  free(cs);
 }
 
-// given a completion list, select the previous and return the element
-// that is selected
-struct completions *compl_select_prev(struct completions *c) {
-  if (c == nil)
-    return nil;
-
-  struct completions *last = nil;
-
-  if (c->selected) { // if the first is selected, select the last one
-    c->selected = false;
-    while (c != nil) {
-      if (c->next == nil) {
-        c->selected = true;
-        return c;
-      }
-      c = c->next;
-    }
+// create a completion list from a text and the list of possible
+// completions (null terminated). Expects a non-null `cs'.
+void filter(struct completions *cs, char *text, char **lines) {
+  struct completion *c = compl_new();
+  if (c == nil) {
+    return;
   }
 
-  // if the selected one is inside the list, select the previous one
-  while (c != nil) {
-    if (c->next == nil) { // if c is the last, save it for later
-      last = c;
-    }
+  cs->completions = c;
 
-    if (c->next && c->next->selected) {
-      c->selected = true;
-      c->next->selected = false;
-      return c;
-    }
-    c = c->next;
-  }
+  int index = 0;
+  int matching = 0;
 
-  // if nothing were selected, select the last one
-  if (c != nil)
-    c->selected = true;
-  return c;
-}
-
-// create a completion list from a text and the list of possible completions
-struct completions *filter(char *text, char **lines) {
-  int i = 0;
-  struct completions *root = compl_new();
-  struct completions *c = root;
-  if (c == nil)
-    return nil;
-
-  for (;;) {
-    char *l = lines[i];
+  while (true) {
+    char *l = lines[index];
     if (l == nil)
       break;
 
     if (strcasestr(l, text) != nil) {
+      matching++;
+
       c->next = compl_new();
       c = c->next;
       if (c == nil) {
-        compl_delete_rec(root);
-        return nil;
+        compls_delete(cs);
+        return;
       }
       c->completion = l;
     }
 
-    ++i;
+    index++;
   }
 
-  struct completions *r = root->next;
-  compl_delete(root);
-  return r;
+  struct completion *f = cs->completions->next;
+  compl_delete(cs->completions);
+  cs->completions = f;
+  cs->lenght = matching;
+  cs->selected = -1;
 }
 
 // update the given completion, that is: clean the old cs & generate a new one.
-struct completions *update_completions(struct completions *cs, char *text, char **lines, bool first_selected) {
-  compl_delete_rec(cs);
-  cs = filter(text, lines);
-  if (first_selected && cs != nil)
-    cs->selected = true;
-  return cs;
+void update_completions(struct completions *cs, char *text, char **lines, bool first_selected) {
+  compl_delete_rec(cs->completions);
+  filter(cs, text, lines);
+  if (first_selected && cs->lenght > 0)
+    cs->selected = 0;
 }
 
 // select the next, or the previous, selection and update some
@@ -249,17 +218,18 @@ struct completions *update_completions(struct completions *cs, char *text, char 
 // `textlen' with the new lenght of `text'. If the memory cannot be
 // allocated, `status' will be set to `ERR'.
 void complete(struct completions *cs, bool first_selected, bool p, char **text, int *textlen, enum state *status) {
+  if (cs == nil || cs->lenght == 0)
+    return;
+
   // if the first is always selected, and the first entry is different
   // from the text, expand the text and return
   if (first_selected
-      && cs != nil
-      && cs->selected
-      && strcmp(cs->completion, *text) != 0
+      && cs->selected == 0
+      && strcmp(cs->completions->completion, *text) != 0
       && !p) {
     free(*text);
-    *text = strdup(cs->completion);
+    *text = strdup(cs->completions->completion);
     if (text == nil) {
-      fprintf(stderr, "Memory allocation error!\n");
       *status = ERR;
       return;
     }
@@ -267,21 +237,28 @@ void complete(struct completions *cs, bool first_selected, bool p, char **text, 
     return;
   }
 
-  struct completions *n = p
-    ? compl_select_prev(cs)
-    : compl_select_next(cs);
+  int index = cs->selected;
 
-  if (n != nil) {
-    free(*text);
-    *text = strdup(n->completion);
-    if (text == nil) {
-      fprintf(stderr, "Memory allocation error!\n");
-      *status = ERR;
-      return;
-    }
-    *textlen = strlen(*text);
+  if (index == -1 && p)
+    index = 0;
+  index = cs->selected = mod((p ? index - 1 : index + 1), cs->lenght);
+
+  struct completion *n = cs->completions;
+
+  // find the selected item
+  while (index != 0) {
+    index--;
+    n = n->next;
   }
 
+  free(*text);
+  *text = strdup(n->completion);
+  if (text == nil) {
+    fprintf(stderr, "Memory allocation error!\n");
+    *status = ERR;
+    return;
+  }
+  *textlen = strlen(*text);
 }
 
 // push the character c at the end of the string pointed by p
@@ -516,23 +493,24 @@ void draw_horizontally(struct rendering *r, char *text, struct completions *cs) 
 
   XFillRectangle(r->d, r->w, r->completion_bg, start_at, 0, r->width, r->height);
 
-  while (cs != nil) {
-    enum text_type tt = cs->selected ? COMPL_HIGH : COMPL;
-    GC h = cs->selected ? r->completion_highlighted_bg : r->completion_bg;
+  struct completion *c = cs->completions;
+  for (int i = 0; c != nil; ++i) {
+    enum text_type tt = cs->selected == i ? COMPL_HIGH : COMPL;
+    GC h = cs->selected == i ? r->completion_highlighted_bg : r->completion_bg;
 
-    int len = strlen(cs->completion);
-    int text_width = text_extents(cs->completion, len, r, nil, nil);
+    int len = strlen(c->completion);
+    int text_width = text_extents(c->completion, len, r, nil, nil);
 
     XFillRectangle(r->d, r->w, h, start_at, 0, text_width + r->padding*2, r->height);
 
-    draw_string(cs->completion, len, start_at + r->padding, texty, r, tt);
+    draw_string(c->completion, len, start_at + r->padding, texty, r, tt);
 
     start_at += text_width + r->padding * 2;
 
     if (start_at > r->width)
       break; // don't draw completion if the space isn't enough
 
-    cs = cs->next;
+    c = c->next;
   }
 
   XFlush(r->d);
@@ -562,21 +540,22 @@ void draw_vertically(struct rendering *r, char *text, struct completions *cs) {
   draw_string(text, strlen(text), r->padding + ps1xlen, height + r->padding, r, PROMPT);
   start_at += r->padding;
 
-  while (cs != nil) {
-    enum text_type tt = cs->selected ? COMPL_HIGH : COMPL;
-    GC h = cs->selected ? r->completion_highlighted_bg : r->completion_bg;
+  struct completion *c = cs->completions;
+  for (int i = 0; c != nil; ++i){
+    enum text_type tt = cs->selected == i ? COMPL_HIGH : COMPL;
+    GC h = cs->selected == i ? r->completion_highlighted_bg : r->completion_bg;
 
-    int len = strlen(cs->completion);
-    text_extents(cs->completion, len, r, &width, &height);
+    int len = strlen(c->completion);
+    text_extents(c->completion, len, r, &width, &height);
     XFillRectangle(r->d, r->w, h, 0, start_at, r->width, height + r->padding*2);
-    draw_string(cs->completion, len, r->padding, start_at + height + r->padding, r, tt);
+    draw_string(c->completion, len, r->padding, start_at + height + r->padding, r, tt);
 
     start_at += height + r->padding *2;
 
     if (start_at > r->height)
       break; // don't draw completion if the space isn't enough
 
-    cs = cs->next;
+    c = c->next;
   }
 
   XFlush(r->d);
@@ -721,14 +700,6 @@ int parse_int_with_middle(const char *str, int default_value, int max, int self)
   return parse_int_with_percentage(str, default_value, max);
 }
 
-// Given the name of the program (argv[0]?) print a small help on stderr
-void usage(char *prgname) {
-  fprintf(stderr, "Usage: %s [flags]\n", prgname);
-  fprintf(stderr, "\t-a: automatic mode, the first completion is "
-          "always selected;\n");
-  fprintf(stderr, "\t-h: print this help.\n");
-}
-
 // Given an event, try to understand what the user wants. If the
 // return value is ADD_CHAR then `input' is a pointer to a string that
 // will need to be free'ed.
@@ -746,16 +717,15 @@ enum action parse_event(Display *d, XKeyPressedEvent *ev, XIC xic, char **input)
     return EXIT;
 
   // try to read what the user pressed
-  int symbol = 0;
+  char str[SYM_BUF_SIZE] = {0};
   Status s = 0;
-  Xutf8LookupString(xic, ev, (char*)&symbol, 4, 0, &s);
+  Xutf8LookupString(xic, ev, str, SYM_BUF_SIZE, 0, &s);
   if (s == XBufferOverflow) {
     // should not happen since there are no utf-8 characters larger
     // than 24bits
     fprintf(stderr, "Buffer overflow when trying to create keyboard symbol map.\n");
     return EXIT;
   }
-  char *str = (char*)&symbol;
 
   if (ev->state & ControlMask) {
     if (!strcmp(str, "")) // C-u
@@ -776,7 +746,7 @@ enum action parse_event(Display *d, XKeyPressedEvent *ev, XIC xic, char **input)
       return TOGGLE_FIRST_SELECTED;
   }
 
-  *input = strdup((char*)&symbol);
+  *input = strdup(str);
   if (*input == nil) {
     fprintf(stderr, "Error while allocating memory for key.\n");
     return EXIT;
@@ -785,33 +755,12 @@ enum action parse_event(Display *d, XKeyPressedEvent *ev, XIC xic, char **input)
   return ADD_CHAR;
 }
 
-// clean up some resources
-int exit_cleanup(struct rendering *r, char *ps1, char *fontname, char *text, char **lines, struct completions *cs, int status) {
-  release_keyboard(r->d);
-
-#ifdef USE_XFT
-  XftColorFree(r->d, DefaultVisual(r->d, 0), DefaultColormap(r->d, 0), &r->xft_prompt);
-  XftColorFree(r->d, DefaultVisual(r->d, 0), DefaultColormap(r->d, 0), &r->xft_completion);
-  XftColorFree(r->d, DefaultVisual(r->d, 0), DefaultColormap(r->d, 0), &r->xft_completion_highlighted);
-#endif
-
-  free(ps1);
-  free(fontname);
-  free(text);
-
-  char *l = nil;
-  char **lns = lines;
-  while ((l = *lns) != nil) {
-    free(l);
-    ++lns;
-  }
-  free(lines);
-  compl_delete(cs);
-
-  XDestroyWindow(r->d, r->w);
-  XCloseDisplay(r->d);
-
-  return status;
+// Given the name of the program (argv[0]?) print a small help on stderr
+void usage(char *prgname) {
+  fprintf(stderr, "Usage: %s [flags]\n", prgname);
+  fprintf(stderr, "\t-a: automatic mode, the first completion is "
+          "always selected;\n");
+  fprintf(stderr, "\t-h: print this help.\n");
 }
 
 int main(int argc, char **argv) {
@@ -876,8 +825,10 @@ int main(int argc, char **argv) {
   check_allocation(text);
 
   /* struct completions *cs = filter(text, lines); */
-  struct completions *cs = nil;
-  cs = update_completions(cs, text, lines, first_selected);
+  struct completions *cs = compls_new();
+  check_allocation(cs);
+
+  update_completions(cs, text, lines, first_selected);
 
   // start talking to xorg
   Display *d = XOpenDisplay(nil);
@@ -1207,9 +1158,9 @@ int main(int argc, char **argv) {
 
             // if first_selected is active and the first completion is
             // active be sure to 'expand' the text to match the selection
-            if (first_selected && cs && cs->selected) {
+            if (first_selected && cs && cs->selected == 0) {
               free(text);
-              text = strdup(cs->completion);
+              text = strdup(cs->completions->completion);
               if (text == nil) {
                 fprintf(stderr, "Memory allocation error");
                 status = ERR;
@@ -1230,7 +1181,7 @@ int main(int argc, char **argv) {
 
           case DEL_CHAR:
             popc(text, textlen);
-            cs = update_completions(cs, text, lines, first_selected);
+            update_completions(cs, text, lines, first_selected);
             break;
 
           case DEL_WORD: {
@@ -1253,19 +1204,26 @@ int main(int argc, char **argv) {
               text[p] = 0;
               p--;
             }
-            cs = update_completions(cs, text, lines, first_selected);
+            update_completions(cs, text, lines, first_selected);
             break;
           }
 
           case DEL_LINE: {
             for (int i = 0; i < textlen; ++i)
               text[i] = 0;
-            cs = update_completions(cs, text, lines, first_selected);
+            update_completions(cs, text, lines, first_selected);
             break;
           }
 
           case ADD_CHAR: {
             int str_len = strlen(input);
+
+            // sometimes a strange key is pressed (i.e. ctrl alone),
+            // so input will be empty. Don't need to update completion
+            // in this case
+            if (str_len == 0)
+              break;
+
             for (int i = 0; i < str_len; ++i) {
               textlen = pushc(&text, textlen, input[i]);
               if (textlen == -1) {
@@ -1273,7 +1231,9 @@ int main(int argc, char **argv) {
                 status = ERR;
                 break;
               }
-              cs = update_completions(cs, text, lines, first_selected);
+            }
+            if (status != ERR) {
+              update_completions(cs, text, lines, first_selected);
               free(input);
             }
             break;
@@ -1281,14 +1241,13 @@ int main(int argc, char **argv) {
 
           case TOGGLE_FIRST_SELECTED:
             first_selected = !first_selected;
-            if (cs)
-              cs->selected = !cs->selected;
+            if (first_selected && cs->selected < 0)
+              cs->selected = 0;
+            if (!first_selected && cs->selected == 0)
+              cs->selected = -1;
             break;
         }
       }
-
-      default:
-        fprintf(stderr, "Unknown event %d\n", e.type);
     }
 
     draw(&r, text, cs);
@@ -1297,5 +1256,30 @@ int main(int argc, char **argv) {
   if (status == OK)
     printf("%s\n", text);
 
-  return exit_cleanup(&r, ps1, fontname, text, lines, cs, status == OK ? 0 : 1);
+  release_keyboard(r.d);
+
+#ifdef USE_XFT
+  XftColorFree(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &r.xft_prompt);
+  XftColorFree(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &r.xft_completion);
+  XftColorFree(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &r.xft_completion_highlighted);
+#endif
+
+  free(ps1);
+  free(fontname);
+  free(text);
+
+  char *l = nil;
+  char **lns = lines;
+  while ((l = *lns) != nil) {
+    free(l);
+    ++lns;
+  }
+
+  free(lines);
+  compls_delete(cs);
+
+  XDestroyWindow(r.d, r.w);
+  XCloseDisplay(r.d);
+
+  return status;
 }
