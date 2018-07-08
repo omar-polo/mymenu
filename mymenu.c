@@ -62,6 +62,9 @@
     }                                                 \
   }
 
+#define inner_height(r) (r->height - r->border_n - r->border_s)
+#define inner_width(r)  (r->width  - r->border_e - r->border_w)
+
 // The possible state of the event loop.
 enum state {LOOPING, OK, ERR};
 
@@ -83,20 +86,37 @@ enum action {
 };
 
 struct rendering {
-  Display *d;
+  Display *d; // connection to xorg
   Window w;
   int width;
   int height;
   int padding;
+  int x_zero; // the "zero" on the x axis (may not be 0 'cause the border)
+  int y_zero; // the same a x_zero, only for the y axis
+
+  // The four border
+  int border_n;
+  int border_e;
+  int border_s;
+  int border_w;
+
   bool horizontal_layout;
+
+  // the prompt
   char *ps1;
   int ps1len;
+
+  // colors
   GC prompt;
   GC prompt_bg;
   GC completion;
   GC completion_bg;
   GC completion_highlighted;
   GC completion_highlighted_bg;
+  GC border_n_bg;
+  GC border_e_bg;
+  GC border_s_bg;
+  GC border_w_bg;
 #ifdef USE_XFT
   XftFont *font;
   XftDraw *xftdraw;
@@ -469,29 +489,23 @@ void draw_horizontally(struct rendering *r, char *text, struct completions *cs) 
   int prompt_width = 20; // char
 
   int width, height;
-  char *ps1_dup = strdupn(r->ps1);
-  if (ps1_dup == nil)
-    return;
-
-  ps1_dup = ps1_dup == nil ? r->ps1 : ps1_dup;
-  int ps1xlen = text_extents(ps1_dup, r->ps1len, r, &width, &height);
-  free(ps1_dup);
+  int ps1xlen = text_extents(r->ps1, r->ps1len, r, &width, &height);
   int start_at = ps1xlen;
 
-  start_at = text_extents("n", 1, r, nil, nil);
+  start_at = r->x_zero + text_extents("n", 1, r, nil, nil);
   start_at = start_at * prompt_width + r->padding;
 
   int texty = (height + r->height) >>1;
 
-  XFillRectangle(r->d, r->w, r->prompt_bg, 0, 0, start_at, r->height);
+  XFillRectangle(r->d, r->w, r->prompt_bg, r->x_zero, r->y_zero, start_at, inner_height(r));
 
   int text_len = strlen(text);
   if (text_len > prompt_width)
     text = text + (text_len - prompt_width);
-  draw_string(r->ps1, r->ps1len, r->padding, texty, r, PROMPT);
-  draw_string(text, MIN(text_len, prompt_width), r->padding + ps1xlen, texty, r, PROMPT);
+  draw_string(r->ps1, r->ps1len, r->x_zero + r->padding, texty, r, PROMPT);
+  draw_string(text, MIN(text_len, prompt_width), r->x_zero + r->padding + ps1xlen, texty, r, PROMPT);
 
-  XFillRectangle(r->d, r->w, r->completion_bg, start_at, 0, r->width, r->height);
+  XFillRectangle(r->d, r->w, r->completion_bg, start_at, r->y_zero, r->width, r->height);
 
   struct completion *c = cs->completions;
   for (int i = 0; c != nil; ++i) {
@@ -501,19 +515,17 @@ void draw_horizontally(struct rendering *r, char *text, struct completions *cs) 
     int len = strlen(c->completion);
     int text_width = text_extents(c->completion, len, r, nil, nil);
 
-    XFillRectangle(r->d, r->w, h, start_at, 0, text_width + r->padding*2, r->height);
+    XFillRectangle(r->d, r->w, h, start_at, r->y_zero, text_width + r->padding*2, inner_height(r));
 
     draw_string(c->completion, len, start_at + r->padding, texty, r, tt);
 
     start_at += text_width + r->padding * 2;
 
-    if (start_at > r->width)
+    if (start_at > inner_width(r))
       break; // don't draw completion if the space isn't enough
 
     c = c->next;
   }
-
-  XFlush(r->d);
 }
 
 // |-----------------------------------------------------------------|
@@ -528,16 +540,14 @@ void draw_vertically(struct rendering *r, char *text, struct completions *cs) {
   text_extents("fjpgl", 5, r, nil, &height);
   int start_at = height + r->padding;
 
-  XFillRectangle(r->d, r->w, r->completion_bg, 0, 0, r->width, r->height);
-  XFillRectangle(r->d, r->w, r->prompt_bg, 0, 0, r->width, start_at);
+  XFillRectangle(r->d, r->w, r->completion_bg, r->x_zero, r->y_zero, r->width, r->height);
+  XFillRectangle(r->d, r->w, r->prompt_bg, r->x_zero, r->y_zero, r->width, start_at);
 
-  char *ps1_dup = strdupn(r->ps1);
-  ps1_dup = ps1_dup == nil ? r->ps1 : ps1_dup;
-  int ps1xlen = text_extents(ps1_dup, r->ps1len, r, nil, nil);
-  free(ps1_dup);
+  int ps1xlen = text_extents(r->ps1, r->ps1len, r, nil, nil);
 
-  draw_string(r->ps1, r->ps1len, r->padding, height + r->padding, r, PROMPT);
-  draw_string(text, strlen(text), r->padding + ps1xlen, height + r->padding, r, PROMPT);
+  draw_string(r->ps1, r->ps1len, r->x_zero + r->padding, r->y_zero + height + r->padding, r, PROMPT);
+  draw_string(text, strlen(text), r->x_zero + r->padding + ps1xlen, r->y_zero + height + r->padding, r, PROMPT);
+
   start_at += r->padding;
 
   struct completion *c = cs->completions;
@@ -547,18 +557,16 @@ void draw_vertically(struct rendering *r, char *text, struct completions *cs) {
 
     int len = strlen(c->completion);
     text_extents(c->completion, len, r, &width, &height);
-    XFillRectangle(r->d, r->w, h, 0, start_at, r->width, height + r->padding*2);
-    draw_string(c->completion, len, r->padding, start_at + height + r->padding, r, tt);
+    XFillRectangle(r->d, r->w, h, r->x_zero, start_at, inner_width(r), height + r->padding*2);
+    draw_string(c->completion, len, r->x_zero + r->padding, start_at + height + r->padding, r, tt);
 
     start_at += height + r->padding *2;
 
-    if (start_at > r->height)
+    if (start_at > inner_height(r))
       break; // don't draw completion if the space isn't enough
 
     c = c->next;
   }
-
-  XFlush(r->d);
 }
 
 void draw(struct rendering *r, char *text, struct completions *cs) {
@@ -566,6 +574,23 @@ void draw(struct rendering *r, char *text, struct completions *cs) {
     draw_horizontally(r, text, cs);
   else
     draw_vertically(r, text, cs);
+
+  // draw the borders
+
+  if (r->border_w != 0)
+    XFillRectangle(r->d, r->w, r->border_w_bg, 0, 0, r->border_w, r->height);
+
+  if (r->border_e != 0)
+    XFillRectangle(r->d, r->w, r->border_e_bg, r->width - r->border_e, 0, r->border_e, r->height);
+
+  if (r->border_n != 0)
+    XFillRectangle(r->d, r->w, r->border_n_bg, 0, 0, r->width, r->border_n);
+
+  if (r->border_s != 0)
+    XFillRectangle(r->d, r->w, r->border_s_bg, 0, r->height - r->border_s, r->width, r->border_s);
+
+  // send all the work to x
+  XFlush(r->d);
 }
 
 /* Set some WM stuff */
@@ -700,6 +725,59 @@ int parse_int_with_middle(const char *str, int default_value, int max, int self)
   return parse_int_with_percentage(str, default_value, max);
 }
 
+// parse a string like a css value (for example like the css
+// margin/padding properties). Will ALWAYS return an array of 4 word
+// TODO: harden this function!
+char **parse_csslike(const char *str) {
+  char *s = strdup(str);
+  if (s == nil)
+    return nil;
+
+  char **ret = malloc(4 * sizeof(char*));
+  if (ret == nil) {
+    free(s);
+    return nil;
+  }
+
+  int i = 0;
+  char *token;
+  while ((token = strsep(&s, " ")) != NULL && i < 4) {
+    ret[i] = strdup(token);
+    i++;
+  }
+
+  if (i == 1)
+    for (int j = 1; j < 4; j++)
+      ret[j] = strdup(ret[0]);
+
+  if (i == 2) {
+    ret[2] = strdup(ret[0]);
+    ret[3] = strdup(ret[1]);
+  }
+
+  if (i == 3)
+    ret[3] = strdup(ret[1]);
+
+  // Before we didn't check for the return type of strdup, here we will
+
+  bool any_null = false;
+  for (int i = 0; i < 4; ++i)
+    any_null = ret[i] == nil || any_null;
+
+  if (any_null)
+    for (int i = 0; i < 4; ++i)
+      if (ret[i] != nil)
+        free(ret[i]);
+
+  if (i == 0 || any_null) {
+    free(s);
+    free(ret);
+    return nil;
+  }
+
+  return ret;
+}
+
 // Given an event, try to understand what the user wants. If the
 // return value is ADD_CHAR then `input' is a pointer to a string that
 // will need to be free'ed.
@@ -814,9 +892,18 @@ int main(int argc, char **argv) {
   // the default padding
   int padding = 10;
 
+  // the default borders
+  int border_n = 0;
+  int border_e = 0;
+  int border_s = 0;
+  int border_w = 0;
+
+  // the prompt. We duplicate the string so later is easy to free (in
+  // the case the user provide its own prompt)
   char *ps1 = strdup("$ ");
   check_allocation(ps1);
 
+  // same for the font name
   char *fontname = strdup(default_fontname);
   check_allocation(fontname);
 
@@ -886,7 +973,8 @@ int main(int argc, char **argv) {
   Colormap cmap = DefaultColormap(d, DefaultScreen(d));
   XColor p_fg, p_bg,
     compl_fg, compl_bg,
-    compl_highlighted_fg, compl_highlighted_bg;
+    compl_highlighted_fg, compl_highlighted_bg,
+    border_n_bg, border_e_bg, border_s_bg, border_w_bg;
 
   bool horizontal_layout = true;
 
@@ -946,6 +1034,20 @@ int main(int argc, char **argv) {
     else
       fprintf(stderr, "no padding defined, using %d\n", padding);
 
+    if (XrmGetResource(xdb, "MyMenu.border.size", "*", datatype, &value) == true) {
+      char **borders = parse_csslike(value.addr);
+      if (borders != nil) {
+        border_n = parse_integer(borders[0], 0);
+        border_e = parse_integer(borders[1], 0);
+        border_s = parse_integer(borders[2], 0);
+        border_w = parse_integer(borders[3], 0);
+      } else {
+        fprintf(stderr, "error while parsing MyMenu.border.size\n");
+      }
+    } else {
+      fprintf(stderr, "no border defined, using 0.\n");
+    }
+
     XColor tmp;
     // TODO: tmp needs to be free'd after every allocation?
 
@@ -981,6 +1083,24 @@ int main(int argc, char **argv) {
       XAllocNamedColor(d, cmap, value.addr, &compl_highlighted_bg, &tmp);
     else
       XAllocNamedColor(d, cmap, "white", &compl_highlighted_bg, &tmp);
+
+    // border
+    if (XrmGetResource(xdb, "MyMenu.border.color", "*", datatype, &value) == true) {
+      char **colors = parse_csslike(value.addr);
+      if (colors != nil) {
+        XAllocNamedColor(d, cmap, colors[0], &border_n_bg, &tmp);
+        XAllocNamedColor(d, cmap, colors[1], &border_e_bg, &tmp);
+        XAllocNamedColor(d, cmap, colors[2], &border_s_bg, &tmp);
+        XAllocNamedColor(d, cmap, colors[3], &border_w_bg, &tmp);
+      } else {
+        fprintf(stderr, "error while parsing MyMenu.border.size\n");
+      }
+    } else {
+      XAllocNamedColor(d, cmap, "white", &border_n_bg, &tmp);
+      XAllocNamedColor(d, cmap, "white", &border_e_bg, &tmp);
+      XAllocNamedColor(d, cmap, "white", &border_s_bg, &tmp);
+      XAllocNamedColor(d, cmap, "white", &border_w_bg, &tmp);
+    }
   } else {
     XColor tmp;
     XAllocNamedColor(d, cmap, "white", &p_fg, &tmp);
@@ -988,7 +1108,10 @@ int main(int argc, char **argv) {
     XAllocNamedColor(d, cmap, "white", &compl_fg, &tmp);
     XAllocNamedColor(d, cmap, "black", &compl_bg, &tmp);
     XAllocNamedColor(d, cmap, "black", &compl_highlighted_fg, &tmp);
-    XAllocNamedColor(d, cmap, "white", &compl_highlighted_bg, &tmp);
+    XAllocNamedColor(d, cmap, "white", &border_n_bg, &tmp);
+    XAllocNamedColor(d, cmap, "white", &border_e_bg, &tmp);
+    XAllocNamedColor(d, cmap, "white", &border_s_bg, &tmp);
+    XAllocNamedColor(d, cmap, "white", &border_w_bg, &tmp);
   }
 
   // load the font
@@ -1048,23 +1171,33 @@ int main(int argc, char **argv) {
   struct rendering r = {
     .d                          = d,
     .w                          = w,
-#ifdef USE_XFT
-    .font                       = font,
-#else
-    .font                       = &font,
-#endif
+    .width                      = width,
+    .height                     = height,
+    .padding                    = padding,
+    .x_zero                     = border_w,
+    .y_zero                     = border_n,
+    .border_n                   = border_n,
+    .border_e                   = border_e,
+    .border_s                   = border_s,
+    .border_w                   = border_w,
+    .horizontal_layout          = horizontal_layout,
+    .ps1                        = ps1,
+    .ps1len                     = strlen(ps1),
     .prompt                     = XCreateGC(d, w, 0, &values),
     .prompt_bg                  = XCreateGC(d, w, 0, &values),
     .completion                 = XCreateGC(d, w, 0, &values),
     .completion_bg              = XCreateGC(d, w, 0, &values),
     .completion_highlighted     = XCreateGC(d, w, 0, &values),
     .completion_highlighted_bg  = XCreateGC(d, w, 0, &values),
-    .width                      = width,
-    .height                     = height,
-    .padding                    = padding,
-    .horizontal_layout          = horizontal_layout,
-    .ps1                        = ps1,
-    .ps1len                     = strlen(ps1)
+    .border_n_bg                = XCreateGC(d, w, 0, &values),
+    .border_e_bg                = XCreateGC(d, w, 0, &values),
+    .border_s_bg                = XCreateGC(d, w, 0, &values),
+    .border_w_bg                = XCreateGC(d, w, 0, &values),
+#ifdef USE_XFT
+    .font                       = font,
+#else
+    .font                       = &font,
+#endif
   };
 
 #ifdef USE_XFT
@@ -1100,6 +1233,10 @@ int main(int argc, char **argv) {
   XSetForeground(d, r.completion_bg, compl_bg.pixel);
   XSetForeground(d, r.completion_highlighted, compl_highlighted_fg.pixel);
   XSetForeground(d, r.completion_highlighted_bg, compl_highlighted_bg.pixel);
+  XSetForeground(d, r.border_n_bg, border_n_bg.pixel);
+  XSetForeground(d, r.border_e_bg, border_e_bg.pixel);
+  XSetForeground(d, r.border_s_bg, border_s_bg.pixel);
+  XSetForeground(d, r.border_w_bg, border_w_bg.pixel);
 
   // open the X input method
   XIM xim = XOpenIM(d, xdb, resname, resclass);
