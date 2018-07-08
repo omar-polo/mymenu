@@ -44,9 +44,6 @@
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-// modulo operator
-#define mod(a, b) (a < 0 ? (a % b + b) : (a % b))
-
 // If we don't have it or we don't want an "ignore case" completion
 // style, fall back to `strstr(3)`
 #ifndef USE_STRCASESTR
@@ -261,7 +258,7 @@ void complete(struct completions *cs, bool first_selected, bool p, char **text, 
 
   if (index == -1 && p)
     index = 0;
-  index = cs->selected = mod((p ? index - 1 : index + 1), cs->lenght);
+  index = cs->selected = (cs->lenght + (p ? index - 1 : index + 1)) % cs->lenght;
 
   struct completion *n = cs->completions;
 
