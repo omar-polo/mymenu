@@ -86,6 +86,23 @@ MyMenu.padding
 > and the text as well as the space up and down the text within the
 > completion. The default value is 10.
 
+MyMenu.border.size
+
+> A list of number separated by spaces to specify the border of the
+> window. The field is parsed like some CSS properties (i.e. padding),
+> that is: if only one value is provided then it'll be used for all
+> borders; if two value are given than the first will be used for the
+> top and bottom border and the former for the left and right border;
+> with three value the first is used for the top border, the second for
+> the left and right border and the third for the bottom border. If four
+> value are given, they'll be applied to the respective border
+> clockwise. Other values will be ignored. The default value is 0.
+
+MyMenu.border.color
+
+> A list of colors for the borders. This field is parsed like the
+> MyMenu.border.size. The default value is black.
+
 MyMenu.prompt.background
 
 > The background of the prompt.
@@ -198,4 +215,4 @@ sysexits(3)
 
 Omar Polo &lt;omar.polo@europecom.net&gt;
 
-OpenBSD 6.3 - July 6, 2018
+OpenBSD 6.3 - July 8, 2018

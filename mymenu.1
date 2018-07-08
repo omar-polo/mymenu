@@ -63,6 +63,19 @@ space between the prompt and the first completion. In the horizontal
 layout the padding is the horizontal spacing between the window edge
 and the text as well as the space up and down the text within the
 completion. The default value is 10.
+.It MyMenu.border.size
+A list of number separated by spaces to specify the border of the
+window. The field is parsed like some CSS properties (i.e. padding),
+that is: if only one value is provided then it'll be used for all
+borders; if two value are given than the first will be used for the
+top and bottom border and the former for the left and right border;
+with three value the first is used for the top border, the second for
+the left and right border and the third for the bottom border. If four
+value are given, they'll be applied to the respective border
+clockwise. Other values will be ignored. The default value is 0.
+.It MyMenu.border.color
+A list of colors for the borders. This field is parsed like the
+MyMenu.border.size. The default value is black.
 .It MyMenu.prompt.background
 The background of the prompt.
 .It MyMenu.prompt.foreground
