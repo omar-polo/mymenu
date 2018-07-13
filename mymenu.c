@@ -41,7 +41,7 @@
 # define default_fontname "fixed"
 #endif
 
-#define ARGS "hvap:x:y:P:l:f:w:h:b:B:t:T:c:C:s:S:"
+#define ARGS "hvap:P:l:f:w:h:x:y:b:B:t:T:c:C:s:S:"
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -1095,7 +1095,7 @@ int main(int argc, char **argv) {
       }
     } else {
       XAllocNamedColor(d, cmap, "white", &border_n_bg, &tmp);
-      XAllocNamedColor(d, cmap, "white", &borde
+      XAllocNamedColor(d, cmap, "white", &border_e_bg, &tmp);
       XAllocNamedColor(d, cmap, "white", &border_s_bg, &tmp);
       XAllocNamedColor(d, cmap, "white", &border_w_bg, &tmp);
     }
