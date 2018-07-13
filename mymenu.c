@@ -544,10 +544,10 @@ void draw_vertically(struct rendering *r, char *text, struct completions *cs) {
 
   int ps1xlen = text_extents(r->ps1, r->ps1len, r, nil, nil);
 
-  draw_string(r->ps1, r->ps1len, r->x_zero + r->padding, height + r->padding, r, PROMPT);
-  draw_string(text, strlen(text), r->x_zero + r->padding + ps1xlen, height + r->padding, r, PROMPT);
+  draw_string(r->ps1, r->ps1len, r->x_zero + r->padding, r->y_zero + height + r->padding, r, PROMPT);
+  draw_string(text, strlen(text), r->x_zero + r->padding + ps1xlen, r->y_zero + height + r->padding, r, PROMPT);
 
-  start_at += r->padding;
+  start_at += r->padding + r->y_zero;
 
   struct completion *c = cs->completions;
   for (int i = 0; c != nil; ++i){
