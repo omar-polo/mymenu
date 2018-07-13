@@ -4,6 +4,27 @@
 .Sh NAME
 .Nm mymenu
 .Nd simple menu for XOrg
+.Sh SYNOPSIS
+.Nm
+.Bk -words
+.Op Fl hva
+.Op Fl p Ar prompt
+.Op Fl x Ar coord
+.Op Fl y Ar coord
+.Op Fl w Ar width
+.Op Fl h Ar height
+.Op Fl P Ar padding
+.Op Fl l Ar layout
+.Op Fl f Ar font
+.Op Fl b Ar borders
+.Op Fl B Ar color
+.Op Fl t Ar color
+.Op Fl T Ar color
+.Op Fl c Ar color
+.Op Fl C Ar color
+.Op Fl s Ar color
+.Op Fl S Ar color
+.Ek
 .Sh DESCRIPTION
 The
 .Nm
@@ -12,19 +33,51 @@ utility a simple graphical menu for XOrg. It read the items from
 and print the user selection to
 .Ic stdout
 on exit.
-.Sh OPTIONS
-.Bl -tag -width Ds
-.It Fl a
-The first completion (if any) is always selected. This is like dmenu.
+
+The following options are available and take the maximum precedence
+over the (respective) ones defined in the
+.Sy X Resource Database
+.Bl -tag -width indent-two
 .It Fl h
 Print a small usage message to stderr.
 .It Fl v
 Print version and exit.
+.It Fl a
+The first completion (if any) is always selected. This is like dmenu.
+.It Fl p Ar prompt
+Override the prompt
+.It Fl x Ar val
+Override the positioning on the X axis, parsed as the resource MyMenu.x
+.It Fl y Ar val
+Override the positioning on the Y axis, parsed as the resource MyMenu.y
+.It Fl P Ar padding
+Override the padding. See the MyMenu.padding resource.
+.It Fl l Ar layout
+Override the layout. Parsed as MyMenu.layout.
+.It Fl f Ar font
+Override the font. See MyMenu.font.
+.It Fl w Ar val
+Override the width. Parsed as MyMenu.width.
+.It Fl h Ar val
+Override the height. Parsed as MyMenu.height.
+.It Fl b Ar borders
+Override the borders size. Parsed as MyMenu.border.size.
+.It Fl B Ar colors
+Override the borders color. Parsed as MyMenu.border.color.
+.It Fl t Ar color
+Override the prompt foreground color. See MyMenu.prompt.foreground.
+.It Fl T Ar color
+Override the prompt background color. See MyMenu.prompt.background.
+.It Fl c Ar color
+Override the completion foreground color. See MyMenu.completion.foreground.
+.It Fl C Ar color
+Override the completion background color. See MyMenu.completion.background.
+.It Fl s Ar color
+Override the highlighted completion foreground color. See MyMenu.completion_highlighted.foreground.
+.It Fl S Ar color
+Override the highlighted completion background color. See MyMenu.completion_highlighted.background.
 .El
 .Sh RESOURCES
-
-The appearance of the menu is defined through the \fBX Resource
-Database\fR.
 .Bl -tag -width Ds
 .It MyMenu.font
 The font name to use. By default is set to "fixed" if compiled without
@@ -147,6 +200,20 @@ resources this behavior isn't strictly considered a bug.
 .It
 C-w (delete last word) does not work well with multi-byte string. The
 whole UTF-8 support is still kinda naïve and should be improved.
+.It
+Keep in mind that sometimes the order of the options matter. First are
+parsed (if any) the xrdb options, then the command line flags
+.Sy in the provided order!
+That meas that if you're providing first the x coordinate, let's say
+"middle", and
+.Sy after that
+you are overriding the width, the window
+.Sy will not be
+centered.
+
+As a general rule of thumb, if you're overriding the width and/or the
+height of the window, remember to override the x and y coordinates as
+well.
 .El
 
 .Sh EXIT STATUS

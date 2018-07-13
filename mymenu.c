@@ -41,6 +41,8 @@
 # define default_fontname "fixed"
 #endif
 
+#define ARGS "hvap:x:y:P:l:f:w:h:b:B:t:T:c:C:s:S:"
+
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
@@ -853,13 +855,13 @@ int main(int argc, char **argv) {
   // by default the first completion isn't selected
   bool first_selected = false;
 
-  // parse the command line options
+  // first round of args parsing for early terminating options
   int ch;
-  while ((ch = getopt(argc, argv, "ahv")) != -1) {
+  while ((ch = getopt(argc, argv, ARGS)) != -1) {
     switch (ch) {
-      case 'a':
-        first_selected = true;
-        break;
+      /* case 'a': */
+      /*   first_selected = true; */
+      /*   break; */
       case 'h':
         usage(*argv);
         return 0;
@@ -867,8 +869,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "%s version: %s\n", *argv, VERSION);
         return 0;
       default:
-        usage(*argv);
-        return EX_USAGE;
+        break;
     }
   }
 
@@ -916,8 +917,6 @@ int main(int argc, char **argv) {
   /* struct completions *cs = filter(text, lines); */
   struct completions *cs = compls_new();
   check_allocation(cs);
-
-  update_completions(cs, text, lines, first_selected);
 
   // start talking to xorg
   Display *d = XOpenDisplay(nil);
@@ -997,10 +996,7 @@ int main(int argc, char **argv) {
       fprintf(stderr, "no font defined, using %s\n", fontname);
 
     if (XrmGetResource(xdb, "MyMenu.layout", "*", datatype, &value) == true) {
-      char *v = strdup(value.addr);
-      check_allocation(v);
-      horizontal_layout = !strcmp(v, "horizontal");
-      free(v);
+      horizontal_layout = !strcmp(value.addr, "horizontal");
     }
     else
       fprintf(stderr, "no layout defined, using horizontal\n");
@@ -1095,11 +1091,11 @@ int main(int argc, char **argv) {
         XAllocNamedColor(d, cmap, colors[2], &border_s_bg, &tmp);
         XAllocNamedColor(d, cmap, colors[3], &border_w_bg, &tmp);
       } else {
-        fprintf(stderr, "error while parsing MyMenu.border.size\n");
+        fprintf(stderr, "error while parsing MyMenu.border.color\n");
       }
     } else {
       XAllocNamedColor(d, cmap, "white", &border_n_bg, &tmp);
-      XAllocNamedColor(d, cmap, "white", &border_e_bg, &tmp);
+      XAllocNamedColor(d, cmap, "white", &borde
       XAllocNamedColor(d, cmap, "white", &border_s_bg, &tmp);
       XAllocNamedColor(d, cmap, "white", &border_w_bg, &tmp);
     }
@@ -1115,6 +1111,113 @@ int main(int argc, char **argv) {
     XAllocNamedColor(d, cmap, "white", &border_s_bg, &tmp);
     XAllocNamedColor(d, cmap, "white", &border_w_bg, &tmp);
   }
+
+  // second round of args parsing
+  optind = 0; // reset the option index
+  while ((ch = getopt(argc, argv, ARGS)) != -1) {
+    switch (ch) {
+      case 'a':
+        first_selected = true;
+        break;
+      case 'p': {
+        char *newprompt = strdup(optarg);
+        if (newprompt != nil) {
+          free(ps1);
+          ps1 = newprompt;
+        }
+        break;
+      }
+      case 'x':
+        x = parse_int_with_pos(optarg, x, d_width, width);
+        break;
+      case 'y':
+        y = parse_int_with_pos(optarg, y, d_height, height);
+        break;
+      case 'P':
+        padding = parse_integer(optarg, padding);
+        break;
+      case 'l':
+        horizontal_layout = !strcmp(optarg, "horizontal");
+        break;
+      case 'f': {
+        char *newfont = strdup(optarg);
+        if (newfont != nil) {
+          free(fontname);
+          fontname = newfont;
+        }
+        break;
+      }
+      case 'w':
+        width = parse_int_with_percentage(optarg, width, d_width);
+        break;
+      case 'h':
+        height = parse_int_with_percentage(optarg, height, d_height);
+        break;
+      case 'b': {
+        char **borders = parse_csslike(optarg);
+        if (borders != nil) {
+          border_n = parse_integer(borders[0], 0);
+          border_e = parse_integer(borders[1], 0);
+          border_s = parse_integer(borders[2], 0);
+          border_w = parse_integer(borders[3], 0);
+        } else {
+          fprintf(stderr, "Error parsing b option\n");
+        }
+        break;
+      }
+      case 'B': {
+        char **colors = parse_csslike(optarg);
+        if (colors != nil) {
+          XColor tmp;
+          XAllocNamedColor(d, cmap, colors[0], &border_n_bg, &tmp);
+          XAllocNamedColor(d, cmap, colors[1], &border_e_bg, &tmp);
+          XAllocNamedColor(d, cmap, colors[2], &border_s_bg, &tmp);
+          XAllocNamedColor(d, cmap, colors[3], &border_w_bg, &tmp);
+        } else {
+          fprintf(stderr, "error while parsing B option\n");
+        }
+        break;
+      }
+      case 't': {
+        XColor tmp;
+        XAllocNamedColor(d, cmap, optarg, &p_fg, &tmp);
+        break;
+      }
+      case 'T': {
+        XColor tmp;
+        XAllocNamedColor(d, cmap, optarg, &p_bg, &tmp);
+        break;
+      }
+      case 'c': {
+        XColor tmp;
+        XAllocNamedColor(d, cmap, optarg, &compl_fg, &tmp);
+        break;
+      }
+      case 'C': {
+        XColor tmp;
+        XAllocNamedColor(d, cmap, optarg, &compl_bg, &tmp);
+        break;
+      }
+      case 's': {
+        XColor tmp;
+        XAllocNamedColor(d, cmap, optarg, &compl_highlighted_fg, &tmp);
+        break;
+      }
+      case 'S': {
+        XColor tmp;
+        XAllocNamedColor(d, cmap, optarg, &compl_highlighted_bg, &tmp);
+        break;
+      }
+      default:
+        fprintf(stderr, "Unrecognized option %c\n", ch);
+        status = ERR;
+        break;
+    }
+  }
+
+  // since only now we know if the first should be selected, update
+  // the completion here
+  update_completions(cs, text, lines, first_selected);
 
   // load the font
 #ifdef USE_XFT

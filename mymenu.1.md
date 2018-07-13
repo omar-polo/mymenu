@@ -4,6 +4,27 @@ MYMENU(1) - General Commands Manual
 
 **mymenu** - simple menu for XOrg
 
+# SYNOPSIS
+
+**mymenu**
+\[**-hva**]
+\[**-p**&nbsp;*prompt*]
+\[**-x**&nbsp;*coord*]
+\[**-y**&nbsp;*coord*]
+\[**-w**&nbsp;*width*]
+\[**-h**&nbsp;*height*]
+\[**-P**&nbsp;*padding*]
+\[**-l**&nbsp;*layout*]
+\[**-f**&nbsp;*font*]
+\[**-b**&nbsp;*borders*]
+\[**-B**&nbsp;*color*]
+\[**-t**&nbsp;*color*]
+\[**-T**&nbsp;*color*]
+\[**-c**&nbsp;*color*]
+\[**-C**&nbsp;*color*]
+\[**-s**&nbsp;*color*]
+\[**-S**&nbsp;*color*]
+
 # DESCRIPTION
 
 The
@@ -14,11 +35,9 @@ and print the user selection to
 **stdout**
 on exit.
 
-# OPTIONS
-
-**-a**
-
-> The first completion (if any) is always selected. This is like dmenu.
+The following options are available and take the maximum precedence
+over the (respective) ones defined in the
+**X Resource Database**
 
 **-h**
 
@@ -28,10 +47,75 @@ on exit.
 
 > Print version and exit.
 
-# RESOURCES
+**-a**
 
-The appearance of the menu is defined through the **X Resource**
-Database.
+> The first completion (if any) is always selected. This is like dmenu.
+
+**-p** *prompt*
+
+> Override the prompt
+
+**-x** *val*
+
+> Override the positioning on the X axis, parsed as the resource MyMenu.x
+
+**-y** *val*
+
+> Override the positioning on the Y axis, parsed as the resource MyMenu.y
+
+**-P** *padding*
+
+> Override the padding. See the MyMenu.padding resource.
+
+**-l** *layout*
+
+> Override the layout. Parsed as MyMenu.layout.
+
+**-f** *font*
+
+> Override the font. See MyMenu.font.
+
+**-w** *val*
+
+> Override the width. Parsed as MyMenu.width.
+
+**-h** *val*
+
+> Override the height. Parsed as MyMenu.height.
+
+**-b** *borders*
+
+> Override the borders size. Parsed as MyMenu.border.size.
+
+**-B** *colors*
+
+> Override the borders color. Parsed as MyMenu.border.color.
+
+**-t** *color*
+
+> Override the prompt foreground color. See MyMenu.prompt.foreground.
+
+**-T** *color*
+
+> Override the prompt background color. See MyMenu.prompt.background.
+
+**-c** *color*
+
+> Override the completion foreground color. See MyMenu.completion.foreground.
+
+**-C** *color*
+
+> Override the completion background color. See MyMenu.completion.background.
+
+**-s** *color*
+
+> Override the highlighted completion foreground color. See MyMenu.completion\_highlighted.foreground.
+
+**-S** *color*
+
+> Override the highlighted completion background color. See MyMenu.completion\_highlighted.background.
+
+# RESOURCES
 
 MyMenu.font
 
@@ -68,14 +152,27 @@ MyMenu.x
 
 > The X coordinate of the topmost left corner of the window. Much like
 > MyMenu.height and MyMenu.width both a pixel dimension and percentage
-> could be supplied. In addition to it, the special value "middle" could
-> be used: in that case the window will be centered on the x axes.
+> could be supplied. In addition to it, some special value can be used.
+
+> start
+
+> > Alias for 0;
+
+> middle
+
+> > Compute the correct value to make sure that mymenu will be
+> > horizontally centered;
+
+> end
+
+> > Compute the correct value to make sure that mymenu will be right
+> > aligned.
 
 MyMenu.y
 
 > The Y coordinate of the topmost left corner of the window. Like the X
 > coordinate a pixel dimension, percentage dimension or the special
-> value "middle" could be supplied.
+> value "start", "middle", "end" could be supplied.
 
 MyMenu.padding
 
@@ -200,6 +297,20 @@ C-i
 *	C-w (delete last word) does not work well with multi-byte string. The
 	whole UTF-8 support is still kinda na&#239;ve and should be improved.
 
+*	Keep in mind that sometimes the order of the options matter. First are
+	parsed (if any) the xrdb options, then the command line flags
+	**in the provided order!**
+	That meas that if you're providing first the x coordinate, let's say
+	"middle", and
+	**after that**
+	you are overriding the width, the window
+	**will not be**
+	centered.
+
+	As a general rule of thumb, if you're overriding the width and/or the
+	height of the window, remember to override the x and y coordinates as
+	well.
+
 # EXIT STATUS
 
 0 when the user select an entry, 1 when the user press Esc, EX\_USAGE
@@ -215,4 +326,4 @@ sysexits(3)
 
 Omar Polo &lt;omar.polo@europecom.net&gt;
 
-OpenBSD 6.3 - July 8, 2018
+OpenBSD 6.3 - July 13, 2018
