@@ -713,12 +713,17 @@ int parse_int_with_percentage(const char *str, int default_value, int max) {
   return parse_integer(str, default_value);
 }
 
-// like parse_int_with_percentage but understands the special value
-// "middle" that is (max - self) / 2
-int parse_int_with_middle(const char *str, int default_value, int max, int self) {
-  if (!strcmp(str, "middle")) {
+// like parse_int_with_percentage but understands some special values
+// - "middle" that is (max - self) / 2
+// - "start"  that is 0
+// - "end"    that is (max - self)
+int parse_int_with_pos(const char *str, int default_value, int max, int self) {
+  if (!strcmp(str, "start"))
+    return 0;
+  if (!strcmp(str, "middle"))
     return (max - self)/2;
-  }
+  if (!strcmp(str, "end"))
+    return max-self;
   return parse_int_with_percentage(str, default_value, max);
 }
 
@@ -1017,12 +1022,12 @@ int main(int argc, char **argv) {
       fprintf(stderr, "no height defined, using %d\n", height);
 
     if (XrmGetResource(xdb, "MyMenu.x", "*", datatype, &value) == true)
-      x = parse_int_with_middle(value.addr, x, d_width, width);
+      x = parse_int_with_pos(value.addr, x, d_width, width);
     else
       fprintf(stderr, "no x defined, using %d\n", x);
 
     if (XrmGetResource(xdb, "MyMenu.y", "*", datatype, &value) == true)
-      y = parse_int_with_middle(value.addr, y, d_height, height);
+      y = parse_int_with_pos(value.addr, y, d_height, height);
     else
       fprintf(stderr, "no y defined, using %d\n", y);
 

@@ -50,12 +50,21 @@ relative percentage will be computed (relative to the monitor height).
 .It MyMenu.x
 The X coordinate of the topmost left corner of the window. Much like
 MyMenu.height and MyMenu.width both a pixel dimension and percentage
-could be supplied. In addition to it, the special value "middle" could
-be used: in that case the window will be centered on the x axes.
+could be supplied. In addition to it, some special value can be used.
+.Bl -tag
+.It start
+Alias for 0;
+.It middle
+Compute the correct value to make sure that mymenu will be
+horizontally centered;
+.It end
+Compute the correct value to make sure that mymenu will be right
+aligned.
+.El
 .It MyMenu.y
 The Y coordinate of the topmost left corner of the window. Like the X
 coordinate a pixel dimension, percentage dimension or the special
-value "middle" could be supplied.
+value "start", "middle", "end" could be supplied.
 .It MyMenu.padding
 Change the padding. In the horizontal layout the padding is the space
 between the rectangle of the completion and the text as well as the
