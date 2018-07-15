@@ -52,8 +52,10 @@
 # define strcasestr strstr
 #endif
 
+// The initial number of items to read
 #define INITIAL_ITEMS 64
 
+// Abort if a is nil
 #define check_allocation(a) {                         \
     if (a == nil) {                                   \
       fprintf(stderr, "Could not allocate memory\n"); \
@@ -84,6 +86,8 @@ enum action {
   TOGGLE_FIRST_SELECTED
 };
 
+// A big set of values that needs to be carried around (for drawing
+// functions). A struct to rule them all
 struct rendering {
   Display *d; // connection to xorg
   Window w;
@@ -133,6 +137,7 @@ struct completion {
   struct completion *next;
 };
 
+// Wrap the linked list of completions
 struct completions {
   struct completion *completions;
   int selected;
@@ -152,6 +157,7 @@ struct completions *compls_new() {
   return cs;
 }
 
+// Return a newly allocated (and empty) completion
 struct completion *compl_new() {
   struct completion *c = malloc(sizeof(struct completion));
   if (c == nil)
@@ -176,6 +182,7 @@ void compl_delete_rec(struct completion *c) {
   }
 }
 
+// Delete the wrapper and the whole list
 void compls_delete(struct completions *cs) {
   if (cs == nil)
     return;
@@ -298,31 +305,26 @@ int pushc(char **p, int maxlen, char c) {
   return maxlen;
 }
 
-// return the number of character
-int utf8strnlen(char *s, int maxlen) {
-  int len = 0;
-  while (*s && maxlen > 0) {
-    len += (*s++ & 0xc0) != 0x80;
-    maxlen--;
-  }
-  return len;
-}
 
-// remove the last *glyph* from the *utf8* string!
-// this is different from just setting the last byte to 0 (in some
-// cases ofc). The actual implementation is quite inefficient because
-// it remove the last byte until the number of glyphs doesn't change
-void popc(char *p, int maxlen) {
-  int len = strnlen(p, maxlen);
-
+// remove the last rune from the *utf8* string! This is different from
+// just setting the last byte to 0 (in some cases ofc).
+void popc(char *p) {
+  int len = strlen(p);
   if (len == 0)
     return;
 
-  int ulen = utf8strnlen(p, maxlen);
-  while (len > 0 && utf8strnlen(p, maxlen) == ulen) {
-    len--;
-    p[len] = 0;
-  }
+  char *e = p + len - 1;
+
+  do {
+    char c = *e;
+    *e = 0;
+    e--;
+
+    // if c is a starting byte (11......) or is under U+007F (ascii,
+    // basically) we're done
+    if (((c & 0x80) && (c & 0x40)) || !(c & 0x80))
+      break;
+  } while (e >= p);
 }
 
 // If the string is surrounded by quotes (`"`) remove them and replace
@@ -869,6 +871,7 @@ int main(int argc, char **argv) {
   // by default the first completion isn't selected
   bool first_selected = false;
 
+  // our parent window
   char *parent_window_id = nil;
 
   // first round of args parsing
@@ -890,6 +893,7 @@ int main(int argc, char **argv) {
     }
   }
 
+  // read the lines from stdin
   char **lines = calloc(INITIAL_ITEMS, sizeof(char*));
   readlines(&lines, INITIAL_ITEMS);
 
@@ -1015,21 +1019,21 @@ int main(int argc, char **argv) {
     if (XrmGetResource(xdb, "MyMenu.font", "*", datatype, &value) == true) {
       fontname = strdup(value.addr);
       check_allocation(fontname);
-    }
-    else
+    } else {
       fprintf(stderr, "no font defined, using %s\n", fontname);
-
-    if (XrmGetResource(xdb, "MyMenu.layout", "*", datatype, &value) == true) {
-      horizontal_layout = !strcmp(value.addr, "horizontal");
     }
+
+    if (XrmGetResource(xdb, "MyMenu.layout", "*", datatype, &value) == true)
+      horizontal_layout = !strcmp(value.addr, "horizontal");
     else
       fprintf(stderr, "no layout defined, using horizontal\n");
 
     if (XrmGetResource(xdb, "MyMenu.prompt", "*", datatype, &value) == true) {
       free(ps1);
       ps1 = normalize_str(value.addr);
-    } else
+    } else {
       fprintf(stderr, "no prompt defined, using \"%s\" as default\n", ps1);
+    }
 
     if (XrmGetResource(xdb, "MyMenu.width", "*", datatype, &value) == true)
       width = parse_int_with_percentage(value.addr, width, d_width);
@@ -1468,7 +1472,7 @@ int main(int argc, char **argv) {
           }
 
           case DEL_CHAR:
-            popc(text, textlen);
+            popc(text);
             update_completions(cs, text, lines, first_selected);
             break;
 
