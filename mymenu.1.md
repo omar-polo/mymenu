@@ -299,9 +299,6 @@ C-i
 	will be treated as a percentage. Since this is a misuse of the
 	resources this behavior isn't strictly considered a bug.
 
-*	C-w (delete last word) does not work well with multi-byte string. The
-	whole UTF-8 support is still kinda na&#239;ve and should be improved.
-
 *	Keep in mind that sometimes the order of the options matter. First are
 	parsed (if any) the xrdb options, then the command line flags
 	**in the provided order!**

@@ -82,11 +82,6 @@ should be enough.
 
  - Improve the filtering process of the completions
 
- - Improve UTF8 support
-
-   The whole UTF8 support is still kinda naïve and should definitely
-   be improved.
-
  - Opacity support
 
 ## Scripts

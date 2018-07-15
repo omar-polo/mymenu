@@ -305,13 +305,13 @@ int pushc(char **p, int maxlen, char c) {
   return maxlen;
 }
 
-
 // remove the last rune from the *utf8* string! This is different from
-// just setting the last byte to 0 (in some cases ofc).
-void popc(char *p) {
+// just setting the last byte to 0 (in some cases ofc). Return a
+// pointer (e) to the last non zero char. If e < p then p is empty!
+char* popc(char *p) {
   int len = strlen(p);
   if (len == 0)
-    return;
+    return p;
 
   char *e = p + len - 1;
 
@@ -325,6 +325,29 @@ void popc(char *p) {
     if (((c & 0x80) && (c & 0x40)) || !(c & 0x80))
       break;
   } while (e >= p);
+
+  return e;
+}
+
+// remove the last word plus trailing whitespaces from the give string
+void popw(char *w) {
+  int len = strlen(w);
+  if (len == 0)
+    return;
+
+  bool in_word = true;
+  while (true) {
+    char *e = popc(w);
+
+    if (e < w)
+      return;
+
+    if (in_word && isspace(*e))
+      in_word = false;
+
+    if (!in_word && !isspace(*e))
+      return;
+  }
 }
 
 // If the string is surrounded by quotes (`"`) remove them and replace
@@ -1477,25 +1500,7 @@ int main(int argc, char **argv) {
             break;
 
           case DEL_WORD: {
-            // `textlen` is the lenght of the allocated string, not the
-            // lenght of the ACTUAL string
-            int p = strlen(text) -1;
-            if (p > 0) { // delete the current char
-              text[p] = 0;
-              p--;
-            }
-
-            // erase the alphanumeric char
-            while (p >= 0 && isalnum(text[p])) {
-              text[p] = 0;
-              p--;
-            }
-
-            // erase also trailing white spaces
-            while (p >= 0 && isspace(text[p])) {
-              text[p] = 0;
-              p--;
-            }
+            popw(text);
             update_completions(cs, text, lines, first_selected);
             break;
           }
