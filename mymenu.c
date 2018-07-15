@@ -41,7 +41,7 @@
 # define default_fontname "fixed"
 #endif
 
-#define ARGS "hvap:P:l:f:w:h:x:y:b:B:t:T:c:C:s:S:"
+#define ARGS "hvae:p:P:l:f:W:H:x:y:b:B:t:T:c:C:s:S:"
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -494,7 +494,7 @@ void draw_horizontally(struct rendering *r, char *text, struct completions *cs) 
   start_at = r->x_zero + text_extents("n", 1, r, nil, nil);
   start_at = start_at * prompt_width + r->padding;
 
-  int texty = (height + r->height) >>1;
+  int texty = (inner_height(r) + height + r->y_zero) / 2;
 
   XFillRectangle(r->d, r->w, r->prompt_bg, r->x_zero, r->y_zero, start_at, inner_height(r));
 
@@ -504,7 +504,7 @@ void draw_horizontally(struct rendering *r, char *text, struct completions *cs) 
   draw_string(r->ps1, r->ps1len, r->x_zero + r->padding, texty, r, PROMPT);
   draw_string(text, MIN(text_len, prompt_width), r->x_zero + r->padding + ps1xlen, texty, r, PROMPT);
 
-  XFillRectangle(r->d, r->w, r->completion_bg, start_at, r->y_zero, r->width, r->height);
+  XFillRectangle(r->d, r->w, r->completion_bg, start_at, r->y_zero, r->width, inner_height(r));
 
   struct completion *c = cs->completions;
   for (int i = 0; c != nil; ++i) {
@@ -664,6 +664,19 @@ void get_wh(Display *d, Window *w, int *width, int *height) {
   *width = win_attr.width;
 }
 
+int grabfocus(Display *d, Window w) {
+  for (int i = 0; i < 100; ++i) {
+    Window focuswin;
+    int revert_to_win;
+    XGetInputFocus(d, &focuswin, &revert_to_win);
+    if (focuswin == w)
+      return true;
+    XSetInputFocus(d, w, RevertToParent, CurrentTime);
+    usleep(1000);
+  }
+  return 0;
+}
+
 // I know this may seem a little hackish BUT is the only way I managed
 // to actually grab that goddam keyboard. Only one call to
 // XGrabKeyboard does not always end up with the keyboard grabbed!
@@ -674,6 +687,7 @@ int take_keyboard(Display *d, Window w) {
       return 1;
     usleep(1000);
   }
+  fprintf(stderr, "Cannot grab keyboard\n");
   return 0;
 }
 
@@ -839,10 +853,10 @@ enum action parse_event(Display *d, XKeyPressedEvent *ev, XIC xic, char **input)
 
 // Given the name of the program (argv[0]?) print a small help on stderr
 void usage(char *prgname) {
-  fprintf(stderr, "Usage: %s [flags]\n", prgname);
-  fprintf(stderr, "\t-a: automatic mode, the first completion is "
-          "always selected;\n");
-  fprintf(stderr, "\t-h: print this help.\n");
+  fprintf(stderr, "%s [-hva] [-p prompt] [-x coord] [-y coord] [-W width] [-H height]\n"
+                  "       [-P padding] [-l layout] [-f font] [-b borders] [-B colors]\n"
+                  "       [-t color] [-T color] [-c color] [-C color] [-s color] [-S color]\n"
+                  "       [-w window_id]\n", prgname);
 }
 
 int main(int argc, char **argv) {
@@ -855,19 +869,22 @@ int main(int argc, char **argv) {
   // by default the first completion isn't selected
   bool first_selected = false;
 
-  // first round of args parsing for early terminating options
+  char *parent_window_id = nil;
+
+  // first round of args parsing
   int ch;
   while ((ch = getopt(argc, argv, ARGS)) != -1) {
     switch (ch) {
-      /* case 'a': */
-      /*   first_selected = true; */
-      /*   break; */
-      case 'h':
+      case 'h': // help
         usage(*argv);
         return 0;
-      case 'v':
+      case 'v': // version
         fprintf(stderr, "%s version: %s\n", *argv, VERSION);
         return 0;
+      case 'e': // embed
+        parent_window_id = strdup(optarg);
+        check_allocation(parent_window_id);
+        break;
       default:
         break;
     }
@@ -925,15 +942,22 @@ int main(int argc, char **argv) {
     return EX_UNAVAILABLE;
   }
 
+  Window parent_window;
+  bool embed = true;
+  if (! (parent_window_id && (parent_window = strtol(parent_window_id, nil, 0)))) {
+    parent_window = DefaultRootWindow(d);
+    embed = false;
+  }
+
   // get display size
-  // XXX: is getting the default root window dimension correct?
-  XWindowAttributes xwa;
-  XGetWindowAttributes(d, DefaultRootWindow(d), &xwa);
-  int d_width = xwa.width;
-  int d_height = xwa.height;
+  int d_width;
+  int d_height;
+  get_wh(d, &parent_window, &d_width, &d_height);
+
+  fprintf(stderr, "d_width %d, d_height %d\n", d_width, d_height);
 
 #ifdef USE_XINERAMA
-  if (XineramaIsActive(d)) {
+  if (!embed && XineramaIsActive(d)) {
     // find the mice
     int number_of_screens = XScreenCount(d);
     Window r;
@@ -1119,6 +1143,9 @@ int main(int argc, char **argv) {
       case 'a':
         first_selected = true;
         break;
+      case 'e':
+        // (embedding mymenu) this case was already catched.
+        break;
       case 'p': {
         char *newprompt = strdup(optarg);
         if (newprompt != nil) {
@@ -1147,10 +1174,10 @@ int main(int argc, char **argv) {
         }
         break;
       }
-      case 'w':
+      case 'W':
         width = parse_int_with_percentage(optarg, width, d_width);
         break;
-      case 'h':
+      case 'H':
         height = parse_int_with_percentage(optarg, height, d_height);
         break;
       case 'b': {
@@ -1235,36 +1262,37 @@ int main(int argc, char **argv) {
   // create the window
   XSetWindowAttributes attr;
   attr.override_redirect = true;
+  attr.event_mask = ExposureMask | KeyPressMask | VisibilityChangeMask;
 
   Window w = XCreateWindow(d,                                   // display
-                           DefaultRootWindow(d),                // parent
+                           parent_window,                       // parent
                            x + offset_x, y + offset_y,          // x y
                            width, height,                       // w h
                            0,                                   // border width
-                           DefaultDepth(d, DefaultScreen(d)),   // depth
+                           CopyFromParent,                      // depth
                            InputOutput,                         // class
-                           DefaultVisual(d, DefaultScreen(d)),  // visual
-                           CWOverrideRedirect,                  // value mask
+                           CopyFromParent,                      // visual
+                           CWEventMask | CWOverrideRedirect,    // value mask (CWBackPixel in the future also?)
                            &attr);
 
   set_win_atoms_hints(d, w, width, height);
 
   // we want some events
   XSelectInput(d, w, StructureNotifyMask | KeyPressMask | KeymapStateMask);
+  XMapRaised(d, w);
 
-  // make the window appear on the screen
-  XMapWindow(d, w);
-
-  // wait for the MapNotify event (i.e. the event "window rendered")
-  for (;;) {
-    XEvent e;
-    XNextEvent(d, &e);
-    if (e.type == MapNotify)
-      break;
+  // if embed, listen for other events as well
+  if (embed) {
+    XSelectInput(d, parent_window, FocusChangeMask);
+    Window *children, parent, root;
+    unsigned int children_no;
+    if (XQueryTree(d, parent_window, &root, &parent, &children, &children_no) && children) {
+      for (unsigned int i = 0; i < children_no && children[i] != w; ++i)
+        XSelectInput(d, children[i], FocusChangeMask);
+      XFree(children);
+    }
+    grabfocus(d, w);
   }
-
-  // get the *real* width & height after the window was rendered
-  get_wh(d, &w, &width, &height);
 
   // grab keyboard
   take_keyboard(d, w);
@@ -1384,6 +1412,24 @@ int main(int argc, char **argv) {
     switch (e.type) {
       case KeymapNotify:
         XRefreshKeyboardMapping(&e.xmapping);
+        break;
+
+      case FocusIn:
+        // re-grab focus
+        if (e.xfocus.window != w)
+          grabfocus(d, w);
+        break;
+
+      case VisibilityNotify:
+        if (e.xvisibility.state != VisibilityUnobscured)
+          XRaiseWindow(d, w);
+        break;
+
+      case MapNotify:
+        /* fprintf(stderr, "Map Notify!\n"); */
+        /* TODO: update the computed window and height! */
+        /* get_wh(d, &w, width, height); */
+        draw(&r, text, cs);
         break;
 
       case KeyPress: {

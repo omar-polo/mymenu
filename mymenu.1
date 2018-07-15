@@ -11,19 +11,20 @@
 .Op Fl p Ar prompt
 .Op Fl x Ar coord
 .Op Fl y Ar coord
-.Op Fl w Ar width
-.Op Fl h Ar height
+.Op Fl W Ar width
+.Op Fl H Ar height
 .Op Fl P Ar padding
 .Op Fl l Ar layout
 .Op Fl f Ar font
 .Op Fl b Ar borders
-.Op Fl B Ar color
+.Op Fl B Ar colors
 .Op Fl t Ar color
 .Op Fl T Ar color
 .Op Fl c Ar color
 .Op Fl C Ar color
 .Op Fl s Ar color
 .Op Fl S Ar color
+.Op Fl w Ar window
 .Ek
 .Sh DESCRIPTION
 The
@@ -76,6 +77,8 @@ Override the completion background color. See MyMenu.completion.background.
 Override the highlighted completion foreground color. See MyMenu.completion_highlighted.foreground.
 .It Fl S Ar color
 Override the highlighted completion background color. See MyMenu.completion_highlighted.background.
+.It Fl w Ar window
+Embed into the given window id.
 .El
 .Sh RESOURCES
 .Bl -tag -width Ds

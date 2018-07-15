@@ -11,19 +11,20 @@ MYMENU(1) - General Commands Manual
 \[**-p**&nbsp;*prompt*]
 \[**-x**&nbsp;*coord*]
 \[**-y**&nbsp;*coord*]
-\[**-w**&nbsp;*width*]
-\[**-h**&nbsp;*height*]
+\[**-W**&nbsp;*width*]
+\[**-H**&nbsp;*height*]
 \[**-P**&nbsp;*padding*]
 \[**-l**&nbsp;*layout*]
 \[**-f**&nbsp;*font*]
 \[**-b**&nbsp;*borders*]
-\[**-B**&nbsp;*color*]
+\[**-B**&nbsp;*colors*]
 \[**-t**&nbsp;*color*]
 \[**-T**&nbsp;*color*]
 \[**-c**&nbsp;*color*]
 \[**-C**&nbsp;*color*]
 \[**-s**&nbsp;*color*]
 \[**-S**&nbsp;*color*]
+\[**-w**&nbsp;*window*]
 
 # DESCRIPTION
 
@@ -114,6 +115,10 @@ over the (respective) ones defined in the
 **-S** *color*
 
 > Override the highlighted completion background color. See MyMenu.completion\_highlighted.background.
+
+**-w** *window*
+
+> Embed into the given window id.
 
 # RESOURCES
 
@@ -326,4 +331,4 @@ sysexits(3)
 
 Omar Polo &lt;omar.polo@europecom.net&gt;
 
-OpenBSD 6.3 - July 13, 2018
+OpenBSD 6.3 - July 15, 2018
