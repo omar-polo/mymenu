@@ -7,7 +7,7 @@ MYMENU(1) - General Commands Manual
 # SYNOPSIS
 
 **mymenu**
-\[**-hva**]
+\[**-hvaA**]
 \[**-p**&nbsp;*prompt*]
 \[**-x**&nbsp;*coord*]
 \[**-y**&nbsp;*coord*]
@@ -25,6 +25,7 @@ MYMENU(1) - General Commands Manual
 \[**-s**&nbsp;*color*]
 \[**-S**&nbsp;*color*]
 \[**-w**&nbsp;*window*]
+\[**-d**&nbsp;*separator*]
 
 # DESCRIPTION
 
@@ -51,6 +52,11 @@ over the (respective) ones defined in the
 **-a**
 
 > The first completion (if any) is always selected. This is like dmenu.
+
+**-A**
+
+> The user must chose one of the option (or none) and is not able to
+> arbitrary enter text
 
 **-p** *prompt*
 
@@ -102,23 +108,33 @@ over the (respective) ones defined in the
 
 **-c** *color*
 
-> Override the completion foreground color. See MyMenu.completion.foreground.
+> Override the completion foreground color. See
+> MyMenu.completion.foreground.
 
 **-C** *color*
 
-> Override the completion background color. See MyMenu.completion.background.
+> Override the completion background color. See
+> MyMenu.completion.background.
 
 **-s** *color*
 
-> Override the highlighted completion foreground color. See MyMenu.completion\_highlighted.foreground.
+> Override the highlighted completion foreground color. See
+> MyMenu.completion\_highlighted.foreground.
 
 **-S** *color*
 
-> Override the highlighted completion background color. See MyMenu.completion\_highlighted.background.
+> Override the highlighted completion background color. See
+> MyMenu.completion\_highlighted.background.
 
 **-w** *window*
 
 > Embed into the given window id.
+
+**-d** *sep*
+
+> Show to the user only the text after the specified separator. If a
+> line does not contain the given separator, the whole line will be
+> showed to the user.
 
 # RESOURCES
 
@@ -292,6 +308,40 @@ C-i
 > keybinding is a more elegant way to change, at runtime, the behaviour
 > of the first completion.
 
+# EXIT STATUS
+
+0 when the user select an entry, 1 when the user press Esc, EX\_USAGE
+if used with wrong flags and EX\_UNAVAILABLE if the connection to X
+fails.
+
+# EXAMPLES
+
+*	Create a simple menu with a couple of entry
+
+		cat <<EOF | $SHELL -c "$(mymenu -p "Exec: ")"
+		firefox
+		zzz
+		xcalc -stipple
+		xlock
+		gimp
+		EOF
+
+*	Select and play a song from the current mpd playlist
+
+		filter="%position%) %artist% - %title%"
+		if song=$(mpc playlist -f "$filter" | mymenu -p "Song: " -A -d ") "); then
+		  mpc play $(echo $song | sed "s/).*$//")
+		fi
+
+# SEE ALSO
+
+dmenu(1)
+sysexits(3)
+
+# AUTHORS
+
+Omar Polo &lt;omar.polo@europecom.net&gt;
+
 # BUGS
 
 *	If, instead of a numeric value, a not-valid number that terminates
@@ -313,19 +363,4 @@ C-i
 	height of the window, remember to override the x and y coordinates as
 	well.
 
-# EXIT STATUS
-
-0 when the user select an entry, 1 when the user press Esc, EX\_USAGE
-if used with wrong flags and EX\_UNAVAILABLE if the connection to X
-fails.
-
-# SEE ALSO
-
-dmenu(1)
-sysexits(3)
-
-# AUTHORS
-
-Omar Polo &lt;omar.polo@europecom.net&gt;
-
-OpenBSD 6.3 - July 15, 2018
+OpenBSD 6.3 - July 21, 2018

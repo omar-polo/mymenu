@@ -41,7 +41,7 @@
 # define default_fontname "fixed"
 #endif
 
-#define ARGS "hvae:p:P:l:f:W:H:x:y:b:B:t:T:c:C:s:S:"
+#define ARGS "hvae:p:P:l:f:W:H:x:y:b:B:t:T:c:C:s:S:d:A"
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -134,6 +134,7 @@ struct rendering {
 // A simple linked list to store the completions.
 struct completion {
   char *completion;
+  char *rcompletion;
   struct completion *next;
 };
 
@@ -164,6 +165,7 @@ struct completion *compl_new() {
     return c;
 
   c->completion = nil;
+  c->rcompletion = nil;
   c->next = nil;
   return c;
 }
@@ -192,8 +194,9 @@ void compls_delete(struct completions *cs) {
 }
 
 // create a completion list from a text and the list of possible
-// completions (null terminated). Expects a non-null `cs'.
-void filter(struct completions *cs, char *text, char **lines) {
+// completions (null terminated). Expects a non-null `cs'. lines and
+// vlines should have the same lenght OR vlines is null
+void filter(struct completions *cs, char *text, char **lines, char **vlines) {
   struct completion *c = compl_new();
   if (c == nil) {
     return;
@@ -204,8 +207,11 @@ void filter(struct completions *cs, char *text, char **lines) {
   int index = 0;
   int matching = 0;
 
+  if (vlines == nil)
+    vlines = lines;
+
   while (true) {
-    char *l = lines[index];
+    char *l = vlines[index] ? vlines[index] : lines[index];
     if (l == nil)
       break;
 
@@ -219,6 +225,7 @@ void filter(struct completions *cs, char *text, char **lines) {
         return;
       }
       c->completion = l;
+      c->rcompletion = lines[index];
     }
 
     index++;
@@ -232,9 +239,9 @@ void filter(struct completions *cs, char *text, char **lines) {
 }
 
 // update the given completion, that is: clean the old cs & generate a new one.
-void update_completions(struct completions *cs, char *text, char **lines, bool first_selected) {
+void update_completions(struct completions *cs, char *text, char **lines, char **vlines, bool first_selected) {
   compl_delete_rec(cs->completions);
-  filter(cs, text, lines);
+  filter(cs, text, lines, vlines);
   if (first_selected && cs->lenght > 0)
     cs->selected = 0;
 }
@@ -415,7 +422,7 @@ char *readline(bool *eof) {
 // `realloc(3)` to store more line. Return the number of lines
 // read. The last item will always be a NULL pointer. It ignore the
 // "null" (empty) lines
-int readlines (char ***lns, int items) {
+int readlines(char ***lns, int items) {
   bool finished = false;
   int n = 0;
   char **lines = *lns;
@@ -891,11 +898,16 @@ int main(int argc, char **argv) {
   pledge("stdio rpath unix", "");
 #endif
 
+  char *sep = nil;
+
   // by default the first completion isn't selected
   bool first_selected = false;
 
   // our parent window
   char *parent_window_id = nil;
+
+  // the user can input arbitrary text
+  bool free_text = true;
 
   // first round of args parsing
   int ch;
@@ -911,6 +923,14 @@ int main(int argc, char **argv) {
         parent_window_id = strdup(optarg);
         check_allocation(parent_window_id);
         break;
+      case 'd': {
+        sep = strdup(optarg);
+        check_allocation(sep);
+      }
+      case 'A': {
+        free_text = false;
+        break;
+      }
       default:
         break;
     }
@@ -918,7 +938,22 @@ int main(int argc, char **argv) {
 
   // read the lines from stdin
   char **lines = calloc(INITIAL_ITEMS, sizeof(char*));
-  readlines(&lines, INITIAL_ITEMS);
+  check_allocation(lines);
+  int nlines = readlines(&lines, INITIAL_ITEMS);
+  char **vlines = nil;
+  if (sep != nil) {
+    int l = strlen(sep);
+    vlines = calloc(nlines, sizeof(char*));
+    check_allocation(vlines);
+
+    for (int i = 0; lines[i] != nil; i++) {
+      char *t = strstr(lines[i], sep);
+      if (t == nil)
+        vlines[i] = lines[i];
+      else
+        vlines[i] = t + l;
+    }
+  }
 
   setlocale(LC_ALL, getenv("LANG"));
 
@@ -980,8 +1015,6 @@ int main(int argc, char **argv) {
   int d_width;
   int d_height;
   get_wh(d, &parent_window, &d_width, &d_height);
-
-  fprintf(stderr, "d_width %d, d_height %d\n", d_width, d_height);
 
 #ifdef USE_XINERAMA
   if (!embed && XineramaIsActive(d)) {
@@ -1170,6 +1203,12 @@ int main(int argc, char **argv) {
       case 'a':
         first_selected = true;
         break;
+      case 'A':
+        // free_text -- this case was already catched
+        break;
+      case 'd':
+        // separator -- this case was already catched
+        break;
       case 'e':
         // (embedding mymenu) this case was already catched.
         break;
@@ -1271,7 +1310,7 @@ int main(int argc, char **argv) {
 
   // since only now we know if the first should be selected, update
   // the completion here
-  update_completions(cs, text, lines, first_selected);
+  update_completions(cs, text, lines, vlines, first_selected);
 
   // load the font
 #ifdef USE_XFT
@@ -1468,21 +1507,34 @@ int main(int argc, char **argv) {
             status = ERR;
             break;
 
-          case CONFIRM:
+          case CONFIRM: {
             status = OK;
-
-            // if first_selected is active and the first completion is
-            // active be sure to 'expand' the text to match the selection
-            if (first_selected && cs && cs->selected == 0) {
+            if ((cs->selected != -1) || (cs->lenght > 0 && first_selected)) {
+              // if there is something selected expand it and return
+              int index = cs->selected == -1 ? 0 : cs->selected;
+              struct completion *c = cs->completions;
+              while (true) {
+                if (index == 0)
+                  break;
+                c = c->next;
+                index--;
+              }
+              char *t = c->rcompletion;
               free(text);
-              text = strdup(cs->completions->completion);
+              text = strdup(t);
               if (text == nil) {
-                fprintf(stderr, "Memory allocation error");
+                fprintf(stderr, "Memory allocation error\n");
                 status = ERR;
               }
               textlen = strlen(text);
+            } else {
+              if (!free_text) {
+                // cannot accept arbitrary text
+                status = LOOPING;
+              }
             }
             break;
+          }
 
           case PREV_COMPL: {
             complete(cs, first_selected, true, &text, &textlen, &status);
@@ -1496,19 +1548,19 @@ int main(int argc, char **argv) {
 
           case DEL_CHAR:
             popc(text);
-            update_completions(cs, text, lines, first_selected);
+            update_completions(cs, text, lines, vlines, first_selected);
             break;
 
           case DEL_WORD: {
             popw(text);
-            update_completions(cs, text, lines, first_selected);
+            update_completions(cs, text, lines, vlines, first_selected);
             break;
           }
 
           case DEL_LINE: {
             for (int i = 0; i < textlen; ++i)
               text[i] = 0;
-            update_completions(cs, text, lines, first_selected);
+            update_completions(cs, text, lines, vlines, first_selected);
             break;
           }
 
@@ -1530,7 +1582,7 @@ int main(int argc, char **argv) {
               }
             }
             if (status != ERR) {
-              update_completions(cs, text, lines, first_selected);
+              update_completions(cs, text, lines, vlines, first_selected);
               free(input);
             }
             break;
@@ -1573,10 +1625,11 @@ int main(int argc, char **argv) {
   }
 
   free(lines);
+  free(vlines);
   compls_delete(cs);
 
   XDestroyWindow(r.d, r.w);
   XCloseDisplay(r.d);
 
-  return status;
+  return status != OK;
 }

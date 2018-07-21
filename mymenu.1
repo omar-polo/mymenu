@@ -7,7 +7,7 @@
 .Sh SYNOPSIS
 .Nm
 .Bk -words
-.Op Fl hva
+.Op Fl hvaA
 .Op Fl p Ar prompt
 .Op Fl x Ar coord
 .Op Fl y Ar coord
@@ -25,6 +25,7 @@
 .Op Fl s Ar color
 .Op Fl S Ar color
 .Op Fl w Ar window
+.Op Fl d Ar separator
 .Ek
 .Sh DESCRIPTION
 The
@@ -45,6 +46,9 @@ Print a small usage message to stderr.
 Print version and exit.
 .It Fl a
 The first completion (if any) is always selected. This is like dmenu.
+.It Fl A
+The user must chose one of the option (or none) and is not able to
+arbitrary enter text
 .It Fl p Ar prompt
 Override the prompt
 .It Fl x Ar val
@@ -70,15 +74,23 @@ Override the prompt foreground color. See MyMenu.prompt.foreground.
 .It Fl T Ar color
 Override the prompt background color. See MyMenu.prompt.background.
 .It Fl c Ar color
-Override the completion foreground color. See MyMenu.completion.foreground.
+Override the completion foreground color. See
+MyMenu.completion.foreground.
 .It Fl C Ar color
-Override the completion background color. See MyMenu.completion.background.
+Override the completion background color. See
+MyMenu.completion.background.
 .It Fl s Ar color
-Override the highlighted completion foreground color. See MyMenu.completion_highlighted.foreground.
+Override the highlighted completion foreground color. See
+MyMenu.completion_highlighted.foreground.
 .It Fl S Ar color
-Override the highlighted completion background color. See MyMenu.completion_highlighted.background.
+Override the highlighted completion background color. See
+MyMenu.completion_highlighted.background.
 .It Fl w Ar window
 Embed into the given window id.
+.It Fl d Ar sep
+Show to the user only the text after the specified separator. If a
+line does not contain the given separator, the whole line will be
+showed to the user.
 .El
 .Sh RESOURCES
 .Bl -tag -width Ds
@@ -192,6 +204,40 @@ really want to choose ``fire''. While you can type some spaces, this
 keybinding is a more elegant way to change, at runtime, the behaviour
 of the first completion.
 .El
+.Sh EXIT STATUS
+
+0 when the user select an entry, 1 when the user press Esc, EX_USAGE
+if used with wrong flags and EX_UNAVAILABLE if the connection to X
+fails.
+.Sh EXAMPLES
+.Bl -bullet -bullet
+.It
+Create a simple menu with a couple of entry
+.Bd -literal -offset indent
+cat <<EOF | $SHELL -c "$(mymenu -p "Exec: ")"
+firefox
+zzz
+xcalc -stipple
+xlock
+gimp
+EOF
+.Ed
+.It
+Select and play a song from the current mpd playlist
+.Bd -literal -offset indent
+filter="%position%) %artist% - %title%"
+if song=$(mpc playlist -f "$filter" | mymenu -p "Song: " -A -d ") "); then
+  mpc play $(echo $song | sed "s/).*$//")
+fi
+.Ed
+.El
+
+.Sh SEE ALSO
+.Xr dmenu 1
+.Xr sysexits 3
+
+.Sh AUTHORS
+.An Omar Polo <omar.polo@europecom.net>
 
 .Sh BUGS
 .Bl -bullet
@@ -215,17 +261,3 @@ As a general rule of thumb, if you're overriding the width and/or the
 height of the window, remember to override the x and y coordinates as
 well.
 .El
-
-.Sh EXIT STATUS
-
-0 when the user select an entry, 1 when the user press Esc, EX_USAGE
-if used with wrong flags and EX_UNAVAILABLE if the connection to X
-fails.
-
-.Sh SEE ALSO
-.Xr dmenu 1
-.Xr sysexits 3
-
-.Sh AUTHORS
-.An Omar Polo <omar.polo@europecom.net>
-
