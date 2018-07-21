@@ -390,52 +390,29 @@ char *normalize_str(const char *str) {
   return s;
 }
 
-// read an arbitrary long line from stdin and return a pointer to it
-// TODO: resize the allocated memory to exactly fit the string once
-// read?
-char *readline(bool *eof) {
-  int maxlen = 8;
-  char *str = calloc(maxlen, sizeof(char));
-  if (str == nil) {
-    fprintf(stderr, "Cannot allocate memory!\n");
-    exit(EX_UNAVAILABLE);
-  }
-
-  int c;
-  while((c = getchar()) != EOF) {
-    if (c == '\n')
-      return str;
-    else
-      maxlen = pushc(&str, maxlen, c);
-
-    if (maxlen == -1) {
-      fprintf(stderr, "Cannot allocate memory!\n");
-      exit(EX_UNAVAILABLE);
-    }
-  }
-  *eof = true;
-  return str;
-}
-
 // read an arbitrary amount of text until an EOF and store it in
 // lns. `items` is the capacity of lns. It may increase lns with
 // `realloc(3)` to store more line. Return the number of lines
 // read. The last item will always be a NULL pointer. It ignore the
 // "null" (empty) lines
 int readlines(char ***lns, int items) {
-  bool finished = false;
   int n = 0;
   char **lines = *lns;
   while (true) {
-    lines[n] = readline(&finished);
+    size_t linelen = 0;
+    ssize_t l = getline(lines + n, &linelen, stdin);
 
-    if (strlen(lines[n]) == 0 || lines[n][0] == '\n') {
-      free(lines[n]);
-      --n; // forget about this line
+    if (l == -1) {
+      break;
     }
 
-    if (finished)
-      break;
+    if (linelen == 0 || lines[n][0] == '\n') {
+      free(lines[n]);
+      lines[n] = nil;
+      continue; // forget about this line
+    }
+
+    strtok(lines[n], "\n"); // get rid of the \n
 
     ++n;
 
