@@ -546,7 +546,7 @@ void draw_horizontally(struct rendering *r, char *text, struct completions *cs) 
 void draw_vertically(struct rendering *r, char *text, struct completions *cs) {
   int height, width;
   text_extents("fjpgl", 5, r, nil, &height);
-  int start_at = height + r->padding;
+  int start_at = r->y_zero + r->padding*2 + height;
 
   XFillRectangle(r->d, r->w, r->completion_bg, r->x_zero, r->y_zero, r->width, r->height);
   XFillRectangle(r->d, r->w, r->prompt_bg, r->x_zero, r->y_zero, r->width, start_at);
@@ -555,8 +555,6 @@ void draw_vertically(struct rendering *r, char *text, struct completions *cs) {
 
   draw_string(r->ps1, r->ps1len, r->x_zero + r->padding, r->y_zero + height + r->padding, r, PROMPT);
   draw_string(text, strlen(text), r->x_zero + r->padding + ps1xlen, r->y_zero + height + r->padding, r, PROMPT);
-
-  start_at += r->padding + r->y_zero;
 
   struct completion *c = cs->completions;
   for (int i = 0; c != nil; ++i){
