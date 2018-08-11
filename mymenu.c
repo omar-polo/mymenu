@@ -131,57 +131,29 @@ struct rendering {
 #endif
 };
 
-// A simple linked list to store the completions.
 struct completion {
   char *completion;
   char *rcompletion;
-  struct completion *next;
 };
 
 // Wrap the linked list of completions
 struct completions {
   struct completion *completions;
-  int selected;
-  int lenght;
+  ssize_t selected;
+  size_t lenght;
 };
 
 // return a newly allocated (and empty) completion list
-struct completions *compls_new() {
+struct completions *compls_new(size_t lenght) {
   struct completions *cs = malloc(sizeof(struct completions));
 
   if (cs == nil)
     return cs;
 
-  cs->completions = nil;
+  cs->completions = calloc(lenght, sizeof(struct completion));
   cs->selected = -1;
-  cs->lenght = 0;
+  cs->lenght = lenght;
   return cs;
-}
-
-// Return a newly allocated (and empty) completion
-struct completion *compl_new() {
-  struct completion *c = malloc(sizeof(struct completion));
-  if (c == nil)
-    return c;
-
-  c->completion = nil;
-  c->rcompletion = nil;
-  c->next = nil;
-  return c;
-}
-
-// delete ONLY the given completion (i.e. does not free c->next...)
-void compl_delete(struct completion *c) {
-  free(c);
-}
-
-// delete the current completion and the next (c->next) and so on...
-void compl_delete_rec(struct completion *c) {
-  while (c != nil) {
-    struct completion *t = c->next;
-    free(c);
-    c = t;
-  }
 }
 
 // Delete the wrapper and the whole list
@@ -189,7 +161,7 @@ void compls_delete(struct completions *cs) {
   if (cs == nil)
     return;
 
-  compl_delete_rec(cs->completions);
+  free(cs->completions);
   free(cs);
 }
 
@@ -197,50 +169,32 @@ void compls_delete(struct completions *cs) {
 // completions (null terminated). Expects a non-null `cs'. lines and
 // vlines should have the same lenght OR vlines is null
 void filter(struct completions *cs, char *text, char **lines, char **vlines) {
-  struct completion *c = compl_new();
-  if (c == nil) {
-    return;
-  }
-
-  cs->completions = c;
-
-  int index = 0;
-  int matching = 0;
+  size_t index = 0;
+  size_t matching = 0;
 
   if (vlines == nil)
     vlines = lines;
 
   while (true) {
-    char *l = vlines[index] ? vlines[index] : lines[index];
+    char *l = vlines[index] != nil ? vlines[index] : lines[index];
     if (l == nil)
       break;
 
     if (strcasestr(l, text) != nil) {
-      matching++;
-
-      c->next = compl_new();
-      c = c->next;
-      if (c == nil) {
-        compls_delete(cs);
-        return;
-      }
-      c->completion = l;
+      struct completion *c = &cs->completions[matching];
+      c->completion  = l;
       c->rcompletion = lines[index];
+      matching++;
     }
 
     index++;
   }
-
-  struct completion *f = cs->completions->next;
-  compl_delete(cs->completions);
-  cs->completions = f;
   cs->lenght = matching;
   cs->selected = -1;
 }
 
 // update the given completion, that is: clean the old cs & generate a new one.
 void update_completions(struct completions *cs, char *text, char **lines, char **vlines, bool first_selected) {
-  compl_delete_rec(cs->completions);
   filter(cs, text, lines, vlines);
   if (first_selected && cs->lenght > 0)
     cs->selected = 0;
@@ -276,13 +230,7 @@ void complete(struct completions *cs, bool first_selected, bool p, char **text, 
     index = 0;
   index = cs->selected = (cs->lenght + (p ? index - 1 : index + 1)) % cs->lenght;
 
-  struct completion *n = cs->completions;
-
-  // find the selected item
-  while (index != 0) {
-    index--;
-    n = n->next;
-  }
+  struct completion *n = &cs->completions[cs->selected];
 
   free(*text);
   *text = strdup(n->completion);
@@ -395,8 +343,8 @@ char *normalize_str(const char *str) {
 // `realloc(3)` to store more line. Return the number of lines
 // read. The last item will always be a NULL pointer. It ignore the
 // "null" (empty) lines
-int readlines(char ***lns, int items) {
-  int n = 0;
+size_t readlines(char ***lns, size_t items) {
+  size_t n = 0;
   char **lines = *lns;
   while (true) {
     size_t linelen = 0;
@@ -438,9 +386,6 @@ int text_extents(char *str, int len, struct rendering *r, int *ret_width, int *r
 #ifdef USE_XFT
   XGlyphInfo gi;
   XftTextExtentsUtf8(r->d, r->font, str, len, &gi);
-  /* height = gi.height; */
-  /* height = (gi.height + (r->font->ascent - r->font->descent)/2) / 2; */
-  /* height = (r->font->ascent - r->font->descent)/2 + gi.height*2; */
   height = r->font->ascent - r->font->descent;
   width = gi.width - gi.x;
 #else
@@ -515,10 +460,11 @@ void draw_horizontally(struct rendering *r, char *text, struct completions *cs) 
 
   XFillRectangle(r->d, r->w, r->completion_bg, start_at, r->y_zero, r->width, inner_height(r));
 
-  struct completion *c = cs->completions;
-  for (int i = 0; c != nil; ++i) {
-    enum text_type tt = cs->selected == i ? COMPL_HIGH : COMPL;
-    GC h = cs->selected == i ? r->completion_highlighted_bg : r->completion_bg;
+  for (size_t i = 0; i < cs->lenght; ++i) {
+    struct completion *c = &cs->completions[i];
+
+    enum text_type tt = cs->selected == (ssize_t)i ? COMPL_HIGH : COMPL;
+    GC h = cs->selected == (ssize_t)i ? r->completion_highlighted_bg : r->completion_bg;
 
     int len = strlen(c->completion);
     int text_width = text_extents(c->completion, len, r, nil, nil);
@@ -531,8 +477,6 @@ void draw_horizontally(struct rendering *r, char *text, struct completions *cs) 
 
     if (start_at > inner_width(r))
       break; // don't draw completion if the space isn't enough
-
-    c = c->next;
   }
 }
 
@@ -558,10 +502,10 @@ void draw_vertically(struct rendering *r, char *text, struct completions *cs) {
 
   start_at += r->y_zero;
 
-  struct completion *c = cs->completions;
-  for (int i = 0; c != nil; ++i){
-    enum text_type tt = cs->selected == i ? COMPL_HIGH : COMPL;
-    GC h = cs->selected == i ? r->completion_highlighted_bg : r->completion_bg;
+  for (size_t i = 0; i < cs->lenght; ++i){
+    struct completion *c = &cs->completions[i];
+    enum text_type tt = cs->selected == (ssize_t)i ? COMPL_HIGH : COMPL;
+    GC h = cs->selected == (ssize_t)i ? r->completion_highlighted_bg : r->completion_bg;
 
     int len = strlen(c->completion);
     text_extents(c->completion, len, r, &width, &height);
@@ -572,8 +516,6 @@ void draw_vertically(struct rendering *r, char *text, struct completions *cs) {
 
     if (start_at > inner_height(r))
       break; // don't draw completion if the space isn't enough
-
-    c = c->next;
   }
 }
 
@@ -916,7 +858,7 @@ int main(int argc, char **argv) {
   // read the lines from stdin
   char **lines = calloc(INITIAL_ITEMS, sizeof(char*));
   check_allocation(lines);
-  int nlines = readlines(&lines, INITIAL_ITEMS);
+  size_t nlines = readlines(&lines, INITIAL_ITEMS);
   char **vlines = nil;
   if (sep != nil) {
     int l = strlen(sep);
@@ -971,7 +913,7 @@ int main(int argc, char **argv) {
   check_allocation(text);
 
   /* struct completions *cs = filter(text, lines); */
-  struct completions *cs = compls_new();
+  struct completions *cs = compls_new(nlines);
   check_allocation(cs);
 
   // start talking to xorg
@@ -1493,7 +1435,7 @@ int main(int argc, char **argv) {
               while (true) {
                 if (index == 0)
                   break;
-                c = c->next;
+                c++;
                 index--;
               }
               char *t = c->rcompletion;
