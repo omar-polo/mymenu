@@ -97,6 +97,8 @@ struct rendering {
   int x_zero; // the "zero" on the x axis (may not be 0 'cause the border)
   int y_zero; // the same a x_zero, only for the y axis
 
+  size_t offset; // a scrolling offset
+
   // The four border
   int border_n;
   int border_e;
@@ -460,7 +462,7 @@ void draw_horizontally(struct rendering *r, char *text, struct completions *cs) 
 
   XFillRectangle(r->d, r->w, r->completion_bg, start_at, r->y_zero, r->width, inner_height(r));
 
-  for (size_t i = 0; i < cs->lenght; ++i) {
+  for (size_t i = r->offset; i < cs->lenght; ++i) {
     struct completion *c = &cs->completions[i];
 
     enum text_type tt = cs->selected == (ssize_t)i ? COMPL_HIGH : COMPL;
@@ -502,7 +504,7 @@ void draw_vertically(struct rendering *r, char *text, struct completions *cs) {
 
   start_at += r->y_zero;
 
-  for (size_t i = 0; i < cs->lenght; ++i){
+  for (size_t i = r->offset; i < cs->lenght; ++i){
     struct completion *c = &cs->completions[i];
     enum text_type tt = cs->selected == (ssize_t)i ? COMPL_HIGH : COMPL;
     GC h = cs->selected == (ssize_t)i ? r->completion_highlighted_bg : r->completion_bg;
@@ -1263,7 +1265,7 @@ int main(int argc, char **argv) {
   set_win_atoms_hints(d, w, width, height);
 
   // we want some events
-  XSelectInput(d, w, StructureNotifyMask | KeyPressMask | KeymapStateMask);
+  XSelectInput(d, w, StructureNotifyMask | KeyPressMask | KeymapStateMask | ButtonPressMask);
   XMapRaised(d, w);
 
   // if embed, listen for other events as well
@@ -1294,6 +1296,7 @@ int main(int argc, char **argv) {
     .padding                    = padding,
     .x_zero                     = border_w,
     .y_zero                     = border_n,
+    .offset                     = 0,
     .border_n                   = border_n,
     .border_e                   = border_e,
     .border_s                   = border_s,
@@ -1457,17 +1460,20 @@ int main(int argc, char **argv) {
 
           case PREV_COMPL: {
             complete(cs, first_selected, true, &text, &textlen, &status);
+            r.offset = cs->selected;
             break;
           }
 
           case NEXT_COMPL: {
             complete(cs, first_selected, false, &text, &textlen, &status);
+            r.offset = cs->selected;
             break;
           }
 
           case DEL_CHAR:
             popc(text);
             update_completions(cs, text, lines, vlines, first_selected);
+            r.offset = 0;
             break;
 
           case DEL_WORD: {
@@ -1480,6 +1486,7 @@ int main(int argc, char **argv) {
             for (int i = 0; i < textlen; ++i)
               text[i] = 0;
             update_completions(cs, text, lines, vlines, first_selected);
+            r.offset = 0;
             break;
           }
 
@@ -1504,6 +1511,7 @@ int main(int argc, char **argv) {
               update_completions(cs, text, lines, vlines, first_selected);
               free(input);
             }
+            r.offset = 0;
             break;
           }
 
@@ -1515,6 +1523,23 @@ int main(int argc, char **argv) {
               cs->selected = -1;
             break;
         }
+      }
+
+      case ButtonPress: {
+        XButtonPressedEvent *ev = (XButtonPressedEvent*)&e;
+        /* if (ev->button == Button1) { /\* click *\/ */
+        /*   int x = ev->x - r.border_w; */
+        /*   int y = ev->y - r.border_n; */
+        /*   fprintf(stderr, "Click @ (%d, %d)\n", x, y); */
+        /* } */
+
+        if (ev->button == Button4) /* scroll up */
+          r.offset = MAX((ssize_t)r.offset - 1, 0);
+
+        if (ev->button == Button5) /* scroll down */
+          r.offset = MIN(r.offset + 1, cs->lenght - 1);
+
+        break;
       }
     }
 
