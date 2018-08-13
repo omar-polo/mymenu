@@ -7,7 +7,7 @@ MYMENU(1) - General Commands Manual
 # SYNOPSIS
 
 **mymenu**
-\[**-hvaA**]
+\[**-Aamvh**]
 \[**-p**&nbsp;*prompt*]
 \[**-x**&nbsp;*coord*]
 \[**-y**&nbsp;*coord*]
@@ -24,7 +24,7 @@ MYMENU(1) - General Commands Manual
 \[**-C**&nbsp;*color*]
 \[**-s**&nbsp;*color*]
 \[**-S**&nbsp;*color*]
-\[**-w**&nbsp;*window*]
+\[**-e**&nbsp;*window*]
 \[**-d**&nbsp;*separator*]
 
 # DESCRIPTION
@@ -57,6 +57,12 @@ over the (respective) ones defined in the
 
 > The user must chose one of the option (or none) and is not able to
 > arbitrary enter text
+
+**-m**
+
+> The user can select multiple entry via C-m. Please consult
+> *KEYS*
+> for more info.
 
 **-p** *prompt*
 
@@ -132,9 +138,8 @@ over the (respective) ones defined in the
 
 **-d** *sep*
 
-> Show to the user only the text after the specified separator. If a
-> line does not contain the given separator, the whole line will be
-> showed to the user.
+> Optionally show only the text after the given separator. Defaults
+> to the whole line if the separator is not present.
 
 # RESOURCES
 
@@ -265,7 +270,7 @@ Enter
 
 C-m
 
-> The same as Enter
+> Confirm but keep looping (if enabled), otherwise complete only
 
 Tab
 
@@ -342,7 +347,7 @@ sysexits(3)
 
 Omar Polo &lt;omar.polo@europecom.net&gt;
 
-# BUGS
+# CAVEATS
 
 *	If, instead of a numeric value, a not-valid number that terminates
 	with the % sign is supplied, then the default value for that field
@@ -363,4 +368,4 @@ Omar Polo &lt;omar.polo@europecom.net&gt;
 	height of the window, remember to override the x and y coordinates as
 	well.
 
-OpenBSD 6.3 - July 21, 2018
+OpenBSD 6.3 - August 13, 2018

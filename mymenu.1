@@ -7,7 +7,7 @@
 .Sh SYNOPSIS
 .Nm
 .Bk -words
-.Op Fl hvaA
+.Op Fl Aamvh
 .Op Fl p Ar prompt
 .Op Fl x Ar coord
 .Op Fl y Ar coord
@@ -24,7 +24,7 @@
 .Op Fl C Ar color
 .Op Fl s Ar color
 .Op Fl S Ar color
-.Op Fl w Ar window
+.Op Fl e Ar window
 .Op Fl d Ar separator
 .Ek
 .Sh DESCRIPTION
@@ -49,6 +49,10 @@ The first completion (if any) is always selected. This is like dmenu.
 .It Fl A
 The user must chose one of the option (or none) and is not able to
 arbitrary enter text
+.It Fl m
+The user can select multiple entry via C-m. Please consult
+.Sx KEYS
+for more info.
 .It Fl p Ar prompt
 Override the prompt
 .It Fl x Ar val
@@ -178,7 +182,7 @@ The same as Esc
 .It Enter
 Close the menu and print to stdout what the user typed
 .It C-m
-The same as Enter
+Confirm but keep looping (if enabled), otherwise complete only
 .It Tab
 Expand the prompt to the next possible completion
 .It Shift Tab
@@ -238,7 +242,7 @@ fi
 .Sh AUTHORS
 .An Omar Polo <omar.polo@europecom.net>
 
-.Sh BUGS
+.Sh CAVEATS
 .Bl -bullet
 .It
 If, instead of a numeric value, a not-valid number that terminates
