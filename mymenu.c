@@ -41,7 +41,7 @@
 # define default_fontname "fixed"
 #endif
 
-#define ARGS "hvae:p:P:l:f:W:H:x:y:b:B:t:T:c:C:s:S:d:A"
+#define ARGS "Aahmve:p:P:l:f:W:H:x:y:b:B:t:T:c:C:s:S:d:"
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -67,7 +67,7 @@
 #define inner_width(r)  (r->width  - r->border_e - r->border_w)
 
 // The possible state of the event loop.
-enum state {LOOPING, OK, ERR};
+enum state {LOOPING, OK_LOOP, OK, ERR};
 
 // for the drawing-related function. The text to be rendered could be
 // the prompt, a completion or a highlighted completion
@@ -77,6 +77,7 @@ enum text_type {PROMPT, COMPL, COMPL_HIGH};
 enum action {
   EXIT,
   CONFIRM,
+  CONFIRM_CONTINUE,
   NEXT_COMPL,
   PREV_COMPL,
   DEL_CHAR,
@@ -99,6 +100,10 @@ struct rendering {
 
   size_t offset; // a scrolling offset
 
+  bool free_text;
+  bool first_selected;
+  bool multiple_select;
+
   // The four border
   int border_n;
   int border_e;
@@ -110,6 +115,8 @@ struct rendering {
   // the prompt
   char *ps1;
   int ps1len;
+
+  XIC xic;
 
   // colors
   GC prompt;
@@ -153,6 +160,11 @@ struct completions *compls_new(size_t lenght) {
     return cs;
 
   cs->completions = calloc(lenght, sizeof(struct completion));
+  if (cs->completions == nil) {
+    free(cs);
+    return nil;
+  }
+
   cs->selected = -1;
   cs->lenght = lenght;
   return cs;
@@ -784,7 +796,7 @@ enum action parse_event(Display *d, XKeyPressedEvent *ev, XIC xic, char **input)
     if (!strcmp(str, "")) // C-h
       return DEL_CHAR;
     if (!strcmp(str, "\r")) // C-m
-      return CONFIRM;
+      return CONFIRM_CONTINUE;
     if (!strcmp(str, "")) // C-p
       return PREV_COMPL;
     if (!strcmp(str, "")) // C-n
@@ -809,7 +821,178 @@ void usage(char *prgname) {
   fprintf(stderr, "%s [-hva] [-p prompt] [-x coord] [-y coord] [-W width] [-H height]\n"
                   "       [-P padding] [-l layout] [-f font] [-b borders] [-B colors]\n"
                   "       [-t color] [-T color] [-c color] [-C color] [-s color] [-S color]\n"
-                  "       [-w window_id]\n", prgname);
+                  "       [-e window_id]\n", prgname);
+}
+
+// small function used in the event loop
+void confirm(enum state *status, struct rendering *r, struct completions *cs, char **text, int *textlen) {
+  if ((cs->selected != -1) || (cs->lenght > 0 && r->first_selected)) {
+    // if there is something selected expand it and return
+    int index = cs->selected == -1 ? 0 : cs->selected;
+    struct completion *c = cs->completions;
+    while (true) {
+      if (index == 0)
+        break;
+      c++;
+      index--;
+    }
+    char *t = c->rcompletion;
+    free(*text);
+    *text = strdup(t);
+    if (*text == nil) {
+      fprintf(stderr, "Memory allocation error\n");
+      *status = ERR;
+    }
+    *textlen = strlen(*text);
+  } else {
+    if (!r->free_text) {
+      // cannot accept arbitrary text
+      *status = LOOPING;
+    }
+  }
+}
+
+// event loop
+enum state loop(struct rendering *r, char **text, int *textlen, struct completions *cs, char **lines, char **vlines) {
+  enum state status = LOOPING;
+  while (status == LOOPING) {
+    XEvent e;
+    XNextEvent(r->d, &e);
+
+    if (XFilterEvent(&e, r->w))
+      continue;
+
+    switch (e.type) {
+      case KeymapNotify:
+        XRefreshKeyboardMapping(&e.xmapping);
+        break;
+
+      case FocusIn:
+        // re-grab focus
+        if (e.xfocus.window != r->w)
+          grabfocus(r->d, r->w);
+        break;
+
+      case VisibilityNotify:
+        if (e.xvisibility.state != VisibilityUnobscured)
+          XRaiseWindow(r->d, r->w);
+        break;
+
+      case MapNotify:
+        get_wh(r->d, &r->w, &r->width, &r->height);
+        draw(r, *text, cs);
+        break;
+
+      case KeyPress: {
+        XKeyPressedEvent *ev = (XKeyPressedEvent*)&e;
+
+        char *input;
+        switch (parse_event(r->d, ev, r->xic, &input)) {
+          case EXIT:
+            status = ERR;
+            break;
+
+          case CONFIRM: {
+            status = OK;
+            confirm(&status, r, cs, text, textlen);
+            break;
+          }
+
+          case CONFIRM_CONTINUE: {
+            status = OK_LOOP;
+            confirm(&status, r, cs, text, textlen);
+            break;
+          }
+
+          case PREV_COMPL: {
+            complete(cs, r->first_selected, true, text, textlen, &status);
+            r->offset = cs->selected;
+            break;
+          }
+
+          case NEXT_COMPL: {
+            complete(cs, r->first_selected, false, text, textlen, &status);
+            r->offset = cs->selected;
+            break;
+          }
+
+          case DEL_CHAR:
+            popc(*text);
+            update_completions(cs, *text, lines, vlines, r->first_selected);
+            r->offset = 0;
+            break;
+
+          case DEL_WORD: {
+            popw(*text);
+            update_completions(cs, *text, lines, vlines, r->first_selected);
+            break;
+          }
+
+          case DEL_LINE: {
+            for (int i = 0; i < *textlen; ++i)
+              *text[i] = 0;
+            update_completions(cs, *text, lines, vlines, r->first_selected);
+            r->offset = 0;
+            break;
+          }
+
+          case ADD_CHAR: {
+            int str_len = strlen(input);
+
+            // sometimes a strange key is pressed (i.e. ctrl alone),
+            // so input will be empty. Don't need to update completion
+            // in this case
+            if (str_len == 0)
+              break;
+
+            for (int i = 0; i < str_len; ++i) {
+              *textlen = pushc(text, *textlen, input[i]);
+              if (*textlen == -1) {
+                fprintf(stderr, "Memory allocation error\n");
+                status = ERR;
+                break;
+              }
+            }
+            if (status != ERR) {
+              update_completions(cs, *text, lines, vlines, r->first_selected);
+              free(input);
+            }
+            r->offset = 0;
+            break;
+          }
+
+          case TOGGLE_FIRST_SELECTED:
+            r->first_selected = !r->first_selected;
+            if (r->first_selected && cs->selected < 0)
+              cs->selected = 0;
+            if (!r->first_selected && cs->selected == 0)
+              cs->selected = -1;
+            break;
+        }
+      }
+
+      case ButtonPress: {
+        XButtonPressedEvent *ev = (XButtonPressedEvent*)&e;
+        /* if (ev->button == Button1) { /\* click *\/ */
+        /*   int x = ev->x - r.border_w; */
+        /*   int y = ev->y - r.border_n; */
+        /*   fprintf(stderr, "Click @ (%d, %d)\n", x, y); */
+        /* } */
+
+        if (ev->button == Button4) /* scroll up */
+          r->offset = MAX((ssize_t)r->offset - 1, 0);
+
+        if (ev->button == Button5) /* scroll down */
+          r->offset = MIN(r->offset + 1, cs->lenght - 1);
+
+        break;
+      }
+    }
+
+    draw(r, *text, cs);
+  }
+
+  return status;
 }
 
 int main(int argc, char **argv) {
@@ -829,6 +1012,9 @@ int main(int argc, char **argv) {
 
   // the user can input arbitrary text
   bool free_text = true;
+
+  // the user can select multiple entries
+  bool multiple_select = false;
 
   // first round of args parsing
   int ch;
@@ -850,6 +1036,10 @@ int main(int argc, char **argv) {
       }
       case 'A': {
         free_text = false;
+        break;
+      }
+      case 'm': {
+        multiple_select = true;
         break;
       }
       default:
@@ -1132,6 +1322,8 @@ int main(int argc, char **argv) {
         break;
       case 'e':
         // (embedding mymenu) this case was already catched.
+      case 'm':
+        // (multiple selection) this case was already catched.
         break;
       case 'p': {
         char *newprompt = strdup(optarg);
@@ -1297,6 +1489,9 @@ int main(int argc, char **argv) {
     .x_zero                     = border_w,
     .y_zero                     = border_n,
     .offset                     = 0,
+    .free_text                  = free_text,
+    .first_selected             = first_selected,
+    .multiple_select            = multiple_select,
     .border_n                   = border_n,
     .border_e                   = border_e,
     .border_s                   = border_s,
@@ -1383,171 +1578,22 @@ int main(int argc, char **argv) {
     fprintf(stderr, "No matching input style could be determined\n");
   }
 
-  XIC xic = XCreateIC(xim, XNInputStyle, bestMatchStyle, XNClientWindow, w, XNFocusWindow, w, NULL);
-  check_allocation(xic);
+  r.xic = XCreateIC(xim, XNInputStyle, bestMatchStyle, XNClientWindow, w, XNFocusWindow, w, NULL);
+  check_allocation(r.xic);
 
   // draw the window for the first time
   draw(&r, text, cs);
 
   // main loop
-  while (status == LOOPING) {
-    XEvent e;
-    XNextEvent(d, &e);
+  while (status == LOOPING || status == OK_LOOP) {
+    status = loop(&r, &text, &textlen, cs, lines, vlines);
 
-    if (XFilterEvent(&e, w))
-      continue;
+    if (status != ERR)
+      printf("%s\n", text);
 
-    switch (e.type) {
-      case KeymapNotify:
-        XRefreshKeyboardMapping(&e.xmapping);
-        break;
-
-      case FocusIn:
-        // re-grab focus
-        if (e.xfocus.window != w)
-          grabfocus(d, w);
-        break;
-
-      case VisibilityNotify:
-        if (e.xvisibility.state != VisibilityUnobscured)
-          XRaiseWindow(d, w);
-        break;
-
-      case MapNotify:
-        /* fprintf(stderr, "Map Notify!\n"); */
-        /* TODO: update the computed window and height! */
-        /* get_wh(d, &w, width, height); */
-        draw(&r, text, cs);
-        break;
-
-      case KeyPress: {
-        XKeyPressedEvent *ev = (XKeyPressedEvent*)&e;
-
-        char *input;
-        switch (parse_event(d, ev, xic, &input)) {
-          case EXIT:
-            status = ERR;
-            break;
-
-          case CONFIRM: {
-            status = OK;
-            if ((cs->selected != -1) || (cs->lenght > 0 && first_selected)) {
-              // if there is something selected expand it and return
-              int index = cs->selected == -1 ? 0 : cs->selected;
-              struct completion *c = cs->completions;
-              while (true) {
-                if (index == 0)
-                  break;
-                c++;
-                index--;
-              }
-              char *t = c->rcompletion;
-              free(text);
-              text = strdup(t);
-              if (text == nil) {
-                fprintf(stderr, "Memory allocation error\n");
-                status = ERR;
-              }
-              textlen = strlen(text);
-            } else {
-              if (!free_text) {
-                // cannot accept arbitrary text
-                status = LOOPING;
-              }
-            }
-            break;
-          }
-
-          case PREV_COMPL: {
-            complete(cs, first_selected, true, &text, &textlen, &status);
-            r.offset = cs->selected;
-            break;
-          }
-
-          case NEXT_COMPL: {
-            complete(cs, first_selected, false, &text, &textlen, &status);
-            r.offset = cs->selected;
-            break;
-          }
-
-          case DEL_CHAR:
-            popc(text);
-            update_completions(cs, text, lines, vlines, first_selected);
-            r.offset = 0;
-            break;
-
-          case DEL_WORD: {
-            popw(text);
-            update_completions(cs, text, lines, vlines, first_selected);
-            break;
-          }
-
-          case DEL_LINE: {
-            for (int i = 0; i < textlen; ++i)
-              text[i] = 0;
-            update_completions(cs, text, lines, vlines, first_selected);
-            r.offset = 0;
-            break;
-          }
-
-          case ADD_CHAR: {
-            int str_len = strlen(input);
-
-            // sometimes a strange key is pressed (i.e. ctrl alone),
-            // so input will be empty. Don't need to update completion
-            // in this case
-            if (str_len == 0)
-              break;
-
-            for (int i = 0; i < str_len; ++i) {
-              textlen = pushc(&text, textlen, input[i]);
-              if (textlen == -1) {
-                fprintf(stderr, "Memory allocation error\n");
-                status = ERR;
-                break;
-              }
-            }
-            if (status != ERR) {
-              update_completions(cs, text, lines, vlines, first_selected);
-              free(input);
-            }
-            r.offset = 0;
-            break;
-          }
-
-          case TOGGLE_FIRST_SELECTED:
-            first_selected = !first_selected;
-            if (first_selected && cs->selected < 0)
-              cs->selected = 0;
-            if (!first_selected && cs->selected == 0)
-              cs->selected = -1;
-            break;
-        }
-      }
-
-      case ButtonPress: {
-        XButtonPressedEvent *ev = (XButtonPressedEvent*)&e;
-        /* if (ev->button == Button1) { /\* click *\/ */
-        /*   int x = ev->x - r.border_w; */
-        /*   int y = ev->y - r.border_n; */
-        /*   fprintf(stderr, "Click @ (%d, %d)\n", x, y); */
-        /* } */
-
-        if (ev->button == Button4) /* scroll up */
-          r.offset = MAX((ssize_t)r.offset - 1, 0);
-
-        if (ev->button == Button5) /* scroll down */
-          r.offset = MIN(r.offset + 1, cs->lenght - 1);
-
-        break;
-      }
-    }
-
-    draw(&r, text, cs);
+    if (!multiple_select && status == OK_LOOP)
+      status = OK;
   }
-
-  if (status == OK)
-    printf("%s\n", text);
 
   release_keyboard(r.d);
 
