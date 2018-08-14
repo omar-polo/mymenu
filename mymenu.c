@@ -930,7 +930,7 @@ enum state loop(struct rendering *r, char **text, int *textlen, struct completio
 
           case DEL_LINE: {
             for (int i = 0; i < *textlen; ++i)
-              *text[i] = 0;
+              *(*text + i) = 0;
             update_completions(cs, *text, lines, vlines, r->first_selected);
             r->offset = 0;
             break;
