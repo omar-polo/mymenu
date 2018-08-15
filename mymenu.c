@@ -1184,6 +1184,7 @@ int main(int argc, char **argv) {
     char *datatype[20];
 
     if (XrmGetResource(xdb, "MyMenu.font", "*", datatype, &value) == true) {
+      free(fontname);
       fontname = strdup(value.addr);
       check_allocation(fontname);
     } else {
