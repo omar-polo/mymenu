@@ -46,6 +46,8 @@
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
+#define EXPANDBITS(x)   ((0xffff * x) / 0xff)
+
 // If we don't have it or we don't want an "ignore case" completion
 // style, fall back to `strstr(3)`
 #ifndef USE_STRCASESTR
@@ -169,6 +171,17 @@ struct completions *compls_new(size_t lenght) {
   cs->lenght = lenght;
   return cs;
 }
+
+/* idea stolen from lemonbar. ty lemonboy */
+typedef union {
+  struct {
+    uint8_t b;
+    uint8_t g;
+    uint8_t r;
+    uint8_t a;
+  };
+  uint32_t v;
+} rgba_t;
 
 // Delete the wrapper and the whole list
 void compls_delete(struct completions *cs) {
@@ -455,8 +468,10 @@ char *strdupn(char *str) {
 void draw_horizontally(struct rendering *r, char *text, struct completions *cs) {
   int prompt_width = 20; // char
 
+  char *ps1dup = strdupn(r->ps1);
   int width, height;
-  int ps1xlen = text_extents(r->ps1, r->ps1len, r, &width, &height);
+  int ps1xlen = text_extents(ps1dup != nil ? ps1dup : r->ps1, r->ps1len, r, &width, &height);
+  free(ps1dup);
   int start_at = ps1xlen;
 
   start_at = r->x_zero + text_extents("n", 1, r, nil, nil);
@@ -509,7 +524,9 @@ void draw_vertically(struct rendering *r, char *text, struct completions *cs) {
   XFillRectangle(r->d, r->w, r->completion_bg, r->x_zero, r->y_zero, r->width, r->height);
   XFillRectangle(r->d, r->w, r->prompt_bg, r->x_zero, r->y_zero, r->width, start_at);
 
-  int ps1xlen = text_extents(r->ps1, r->ps1len, r, nil, nil);
+  char *ps1dup = strdupn(r->ps1);
+  int ps1xlen = text_extents(ps1dup != nil ? ps1dup : r->ps1, r->ps1len, r, nil, nil);
+  free(ps1dup);
 
   draw_string(r->ps1, r->ps1len, r->x_zero + r->padding, r->y_zero + height + r->padding, r, PROMPT);
   draw_string(text, strlen(text), r->x_zero + r->padding + ps1xlen, r->y_zero + height + r->padding, r, PROMPT);
@@ -659,6 +676,54 @@ int take_keyboard(Display *d, Window w) {
 // release the keyboard.
 void release_keyboard(Display *d) {
   XUngrabKeyboard(d, CurrentTime);
+}
+
+unsigned long parse_color(const char *str, const char *def) {
+  if (str == nil)
+    goto invc;
+
+  size_t len = strlen(str);
+
+  // +1 for the '#' at the start, hence 9 and 4 (instead of 8 and 3)
+  if (*str != '#' || len > 9 || len < 4)
+    goto invc;
+  ++str; // skip the '#'
+
+  char *ep;
+  errno = 0;
+  rgba_t tmp = (rgba_t)(uint32_t)strtoul(str, &ep, 16);
+
+  if (errno)
+    goto invc;
+
+  switch (len-1) {
+  case 3:
+    // expand: #rgb -> #rrggbb
+    tmp.v = (tmp.v & 0xf00) * 0x1100
+          | (tmp.v & 0x0f0) * 0x0110
+          | (tmp.v & 0x00f) * 0x0011;
+  case 6:
+    // assume it has 100% opacity
+    tmp.a = 0xff;
+    break;
+  } // colors in aarrggbb format needs no fixes
+
+  // premultiply the alpha
+  if (tmp.a) {
+    tmp.r = (tmp.r * tmp.a) / 255;
+    tmp.g = (tmp.g * tmp.a) / 255;
+    tmp.b = (tmp.b * tmp.a) / 255;
+    return tmp.v;
+  }
+
+  return 0U;
+
+invc:
+  fprintf(stderr, "Invalid color: \"%s\".\n", str);
+  if (def != nil)
+    return parse_color(def, nil);
+  else
+    return 0U;
 }
 
 // Given a string, try to parse it as a number or return
@@ -1166,11 +1231,23 @@ int main(int argc, char **argv) {
   }
 #endif
 
-  Colormap cmap = DefaultColormap(d, DefaultScreen(d));
-  XColor p_fg, p_bg,
-    compl_fg, compl_bg,
-    compl_highlighted_fg, compl_highlighted_bg,
-    border_n_bg, border_e_bg, border_s_bg, border_w_bg;
+  /* Colormap cmap = DefaultColormap(d, DefaultScreen(d)); */
+  XVisualInfo vinfo;
+  XMatchVisualInfo(d, DefaultScreen(d), 32, TrueColor, &vinfo);
+
+  Colormap cmap;
+  cmap = XCreateColormap(d, XDefaultRootWindow(d), vinfo.visual, AllocNone);
+
+  unsigned long p_fg = parse_color("#fff", nil);
+  unsigned long compl_fg = parse_color("#fff", nil);
+  unsigned long compl_highlighted_fg = parse_color("#000", nil);
+
+  unsigned long p_bg = parse_color("#000", nil);
+  unsigned long compl_bg = parse_color("#000", nil);
+  unsigned long compl_highlighted_bg = parse_color("#fff", nil);
+
+  unsigned long border_n_bg, border_e_bg, border_s_bg, border_w_bg;
+  border_n_bg = border_e_bg = border_s_bg = border_w_bg = parse_color("#000", nil);
 
   bool horizontal_layout = true;
 
@@ -1242,70 +1319,46 @@ int main(int argc, char **argv) {
       fprintf(stderr, "no border defined, using 0.\n");
     }
 
-    XColor tmp;
+    /* XColor tmp; */
     // TODO: tmp needs to be free'd after every allocation?
 
     // prompt
     if (XrmGetResource(xdb, "MyMenu.prompt.foreground", "*", datatype, &value) == true)
-      XAllocNamedColor(d, cmap, value.addr, &p_fg, &tmp);
-    else
-      XAllocNamedColor(d, cmap, "white", &p_fg, &tmp);
+      p_fg = parse_color(value.addr, "#fff");
 
     if (XrmGetResource(xdb, "MyMenu.prompt.background", "*", datatype, &value) == true)
-      XAllocNamedColor(d, cmap, value.addr, &p_bg, &tmp);
-    else
-      XAllocNamedColor(d, cmap, "black", &p_bg, &tmp);
+      p_bg = parse_color(value.addr, "#000");
 
     // completion
     if (XrmGetResource(xdb, "MyMenu.completion.foreground", "*", datatype, &value) == true)
-      XAllocNamedColor(d, cmap, value.addr, &compl_fg, &tmp);
-    else
-      XAllocNamedColor(d, cmap, "white", &compl_fg, &tmp);
+      compl_fg = parse_color(value.addr, "#fff");
 
     if (XrmGetResource(xdb, "MyMenu.completion.background", "*", datatype, &value) == true)
-      XAllocNamedColor(d, cmap, value.addr, &compl_bg, &tmp);
+      compl_bg = parse_color(value.addr, "#000");
     else
-      XAllocNamedColor(d, cmap, "black", &compl_bg, &tmp);
+      compl_bg = parse_color("#000", nil);
 
     // completion highlighted
     if (XrmGetResource(xdb, "MyMenu.completion_highlighted.foreground", "*", datatype, &value) == true)
-      XAllocNamedColor(d, cmap, value.addr, &compl_highlighted_fg, &tmp);
-    else
-      XAllocNamedColor(d, cmap, "black", &compl_highlighted_fg, &tmp);
+      compl_highlighted_fg = parse_color(value.addr, "#000");
 
     if (XrmGetResource(xdb, "MyMenu.completion_highlighted.background", "*", datatype, &value) == true)
-      XAllocNamedColor(d, cmap, value.addr, &compl_highlighted_bg, &tmp);
+      compl_highlighted_bg = parse_color(value.addr, "#fff");
     else
-      XAllocNamedColor(d, cmap, "white", &compl_highlighted_bg, &tmp);
+      compl_highlighted_bg = parse_color("#fff", nil);
 
     // border
     if (XrmGetResource(xdb, "MyMenu.border.color", "*", datatype, &value) == true) {
       char **colors = parse_csslike(value.addr);
       if (colors != nil) {
-        XAllocNamedColor(d, cmap, colors[0], &border_n_bg, &tmp);
-        XAllocNamedColor(d, cmap, colors[1], &border_e_bg, &tmp);
-        XAllocNamedColor(d, cmap, colors[2], &border_s_bg, &tmp);
-        XAllocNamedColor(d, cmap, colors[3], &border_w_bg, &tmp);
+        border_n_bg = parse_color(colors[0], "#000");
+        border_e_bg = parse_color(colors[1], "#000");
+        border_s_bg = parse_color(colors[2], "#000");
+        border_w_bg = parse_color(colors[3], "#000");
       } else {
         fprintf(stderr, "error while parsing MyMenu.border.color\n");
       }
-    } else {
-      XAllocNamedColor(d, cmap, "white", &border_n_bg, &tmp);
-      XAllocNamedColor(d, cmap, "white", &border_e_bg, &tmp);
-      XAllocNamedColor(d, cmap, "white", &border_s_bg, &tmp);
-      XAllocNamedColor(d, cmap, "white", &border_w_bg, &tmp);
     }
-  } else {
-    XColor tmp;
-    XAllocNamedColor(d, cmap, "white", &p_fg, &tmp);
-    XAllocNamedColor(d, cmap, "black", &p_bg, &tmp);
-    XAllocNamedColor(d, cmap, "white", &compl_fg, &tmp);
-    XAllocNamedColor(d, cmap, "black", &compl_bg, &tmp);
-    XAllocNamedColor(d, cmap, "black", &compl_highlighted_fg, &tmp);
-    XAllocNamedColor(d, cmap, "white", &border_n_bg, &tmp);
-    XAllocNamedColor(d, cmap, "white", &border_e_bg, &tmp);
-    XAllocNamedColor(d, cmap, "white", &border_s_bg, &tmp);
-    XAllocNamedColor(d, cmap, "white", &border_w_bg, &tmp);
   }
 
   // second round of args parsing
@@ -1375,44 +1428,37 @@ int main(int argc, char **argv) {
       case 'B': {
         char **colors = parse_csslike(optarg);
         if (colors != nil) {
-          XColor tmp;
-          XAllocNamedColor(d, cmap, colors[0], &border_n_bg, &tmp);
-          XAllocNamedColor(d, cmap, colors[1], &border_e_bg, &tmp);
-          XAllocNamedColor(d, cmap, colors[2], &border_s_bg, &tmp);
-          XAllocNamedColor(d, cmap, colors[3], &border_w_bg, &tmp);
+          border_n_bg = parse_color(colors[0], "#000");
+          border_e_bg = parse_color(colors[1], "#000");
+          border_s_bg = parse_color(colors[2], "#000");
+          border_w_bg = parse_color(colors[3], "#000");
         } else {
           fprintf(stderr, "error while parsing B option\n");
         }
         break;
       }
       case 't': {
-        XColor tmp;
-        XAllocNamedColor(d, cmap, optarg, &p_fg, &tmp);
+        p_fg = parse_color(optarg, nil);
         break;
       }
       case 'T': {
-        XColor tmp;
-        XAllocNamedColor(d, cmap, optarg, &p_bg, &tmp);
+        p_bg = parse_color(optarg, nil);
         break;
       }
       case 'c': {
-        XColor tmp;
-        XAllocNamedColor(d, cmap, optarg, &compl_fg, &tmp);
+        compl_fg = parse_color(optarg, nil);
         break;
       }
       case 'C': {
-        XColor tmp;
-        XAllocNamedColor(d, cmap, optarg, &compl_bg, &tmp);
+        compl_bg = parse_color(optarg, nil);
         break;
       }
       case 's': {
-        XColor tmp;
-        XAllocNamedColor(d, cmap, optarg, &compl_highlighted_fg, &tmp);
+        compl_highlighted_fg = parse_color(optarg, nil);
         break;
       }
       case 'S': {
-        XColor tmp;
-        XAllocNamedColor(d, cmap, optarg, &compl_highlighted_bg, &tmp);
+        compl_highlighted_bg = parse_color(optarg, nil);
         break;
       }
       default:
@@ -1441,7 +1487,10 @@ int main(int argc, char **argv) {
 
   // create the window
   XSetWindowAttributes attr;
+  attr.colormap = cmap;
   attr.override_redirect = true;
+  attr.border_pixel = 0;
+  attr.background_pixel = 0x80808080;
   attr.event_mask = ExposureMask | KeyPressMask | VisibilityChangeMask;
 
   Window w = XCreateWindow(d,                                   // display
@@ -1449,10 +1498,10 @@ int main(int argc, char **argv) {
                            x + offset_x, y + offset_y,          // x y
                            width, height,                       // w h
                            0,                                   // border width
-                           CopyFromParent,                      // depth
+                           vinfo.depth,                         // depth
                            InputOutput,                         // class
-                           CopyFromParent,                      // visual
-                           CWEventMask | CWOverrideRedirect,    // value mask (CWBackPixel in the future also?)
+                           vinfo.visual,                        // visual
+                           CWBorderPixel | CWBackPixel | CWColormap | CWEventMask | CWOverrideRedirect, // value mask
                            &attr);
 
   set_win_atoms_hints(d, w, width, height);
@@ -1518,42 +1567,53 @@ int main(int argc, char **argv) {
   };
 
 #ifdef USE_XFT
-  r.xftdraw = XftDrawCreate(d, w, DefaultVisual(d, 0), DefaultColormap(d, 0));
+  r.xftdraw = XftDrawCreate(d, w, vinfo.visual, DefaultColormap(d, 0));
 
-  // prompt
-  XRenderColor xrcolor;
-  xrcolor.red          = p_fg.red;
-  xrcolor.green        = p_fg.red;
-  xrcolor.blue         = p_fg.red;
-  xrcolor.alpha        = 65535;
-  XftColorAllocValue(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &xrcolor, &r.xft_prompt);
+  {
+    rgba_t c;
 
-  // completion
-  xrcolor.red          = compl_fg.red;
-  xrcolor.green        = compl_fg.green;
-  xrcolor.blue         = compl_fg.blue;
-  xrcolor.alpha        = 65535;
-  XftColorAllocValue(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &xrcolor, &r.xft_completion);
+    XRenderColor xrcolor;
 
-  // completion highlighted
-  xrcolor.red          = compl_highlighted_fg.red;
-  xrcolor.green        = compl_highlighted_fg.green;
-  xrcolor.blue         = compl_highlighted_fg.blue;
-  xrcolor.alpha        = 65535;
-  XftColorAllocValue(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &xrcolor, &r.xft_completion_highlighted);
+    // prompt
+    c = *(rgba_t*)&p_fg;
+    xrcolor.red          = EXPANDBITS(c.r);
+    xrcolor.green        = EXPANDBITS(c.g);
+    xrcolor.blue         = EXPANDBITS(c.b);
+    xrcolor.alpha        = EXPANDBITS(c.a);
+    XftColorAllocValue(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &xrcolor, &r.xft_prompt);
+
+    // completion
+    c = *(rgba_t*)&compl_fg;
+    xrcolor.red          = EXPANDBITS(c.r);
+    xrcolor.green        = EXPANDBITS(c.g);
+    xrcolor.blue         = EXPANDBITS(c.b);
+    xrcolor.alpha        = EXPANDBITS(c.a);
+    XftColorAllocValue(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &xrcolor, &r.xft_completion);
+
+    // completion highlighted
+    c = *(rgba_t*)&compl_highlighted_fg;
+    xrcolor.red          = EXPANDBITS(c.r);
+    xrcolor.green        = EXPANDBITS(c.g);
+    xrcolor.blue         = EXPANDBITS(c.b);
+    xrcolor.alpha        = EXPANDBITS(c.a);
+    XftColorAllocValue(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &xrcolor, &r.xft_completion_highlighted);
+  }
 #endif
 
   // load the colors in our GCs
-  XSetForeground(d, r.prompt, p_fg.pixel);
-  XSetForeground(d, r.prompt_bg, p_bg.pixel);
-  XSetForeground(d, r.completion, compl_fg.pixel);
-  XSetForeground(d, r.completion_bg, compl_bg.pixel);
-  XSetForeground(d, r.completion_highlighted, compl_highlighted_fg.pixel);
-  XSetForeground(d, r.completion_highlighted_bg, compl_highlighted_bg.pixel);
-  XSetForeground(d, r.border_n_bg, border_n_bg.pixel);
-  XSetForeground(d, r.border_e_bg, border_e_bg.pixel);
-  XSetForeground(d, r.border_s_bg, border_s_bg.pixel);
-  XSetForeground(d, r.border_w_bg, border_w_bg.pixel);
+  /* XSetForeground(d, r.prompt, p_fg.pixel); */
+  XSetForeground(d, r.prompt, p_fg);
+  XSetForeground(d, r.prompt_bg, p_bg);
+  /* XSetForeground(d, r.completion, compl_fg.pixel); */
+  XSetForeground(d, r.completion, compl_fg);
+  XSetForeground(d, r.completion_bg, compl_bg);
+  /* XSetForeground(d, r.completion_highlighted, compl_highlighted_fg.pixel); */
+  XSetForeground(d, r.completion_highlighted, compl_highlighted_fg);
+  XSetForeground(d, r.completion_highlighted_bg, compl_highlighted_bg);
+  XSetForeground(d, r.border_n_bg, border_n_bg);
+  XSetForeground(d, r.border_e_bg, border_e_bg);
+  XSetForeground(d, r.border_s_bg, border_s_bg);
+  XSetForeground(d, r.border_w_bg, border_w_bg);
 
   // open the X input method
   XIM xim = XOpenIM(d, xdb, resname, resclass);
