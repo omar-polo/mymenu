@@ -8,24 +8,24 @@ MYMENU(1) - General Commands Manual
 
 **mymenu**
 \[**-Aamvh**]
+\[**-B**&nbsp;*colors*]
+\[**-b**&nbsp;*borders*]
+\[**-C**&nbsp;*color*]
+\[**-c**&nbsp;*color*]
+\[**-d**&nbsp;*separator*]
+\[**-e**&nbsp;*window*]
+\[**-f**&nbsp;*font*]
+\[**-H**&nbsp;*height*]
+\[**-l**&nbsp;*layout*]
+\[**-P**&nbsp;*padding*]
 \[**-p**&nbsp;*prompt*]
+\[**-T**&nbsp;*color*]
+\[**-t**&nbsp;*color*]
+\[**-S**&nbsp;*color*]
+\[**-s**&nbsp;*color*]
+\[**-W**&nbsp;*width*]
 \[**-x**&nbsp;*coord*]
 \[**-y**&nbsp;*coord*]
-\[**-W**&nbsp;*width*]
-\[**-H**&nbsp;*height*]
-\[**-P**&nbsp;*padding*]
-\[**-l**&nbsp;*layout*]
-\[**-f**&nbsp;*font*]
-\[**-b**&nbsp;*borders*]
-\[**-B**&nbsp;*colors*]
-\[**-t**&nbsp;*color*]
-\[**-T**&nbsp;*color*]
-\[**-c**&nbsp;*color*]
-\[**-C**&nbsp;*color*]
-\[**-s**&nbsp;*color*]
-\[**-S**&nbsp;*color*]
-\[**-e**&nbsp;*window*]
-\[**-d**&nbsp;*separator*]
 
 # DESCRIPTION
 
@@ -41,32 +41,99 @@ The following options are available and take the maximum precedence
 over the (respective) ones defined in the
 **X Resource Database**
 
-**-h**
-
-> Print a small usage message to stderr.
-
-**-v**
-
-> Print version and exit.
-
-**-a**
-
-> The first completion (if any) is always selected. This is like dmenu.
-
 **-A**
 
 > The user must chose one of the option (or none) and is not able to
 > arbitrary enter text
 
+**-a**
+
+> The first completion (if any) is always selected. This is like dmenu.
+
+**-B** *colors*
+
+> Override the borders color. Parsed as MyMenu.border.color.
+
+**-b** *borders*
+
+> Override the borders size. Parsed as MyMenu.border.size.
+
+**-C** *color*
+
+> Override the completion background color. See
+> MyMenu.completion.background.
+
+**-c** *color*
+
+> Override the completion foreground color. See
+> MyMenu.completion.foreground.
+
+**-d** *separator*
+
+> Define a string to be used as a separator. Only the text after the
+> separator will be rendered, but the original string will be
+> returned. Useful to embed custom data on every entry. See the mpd
+> example for hints on how this can be useful.
+
+**-e** *windowid*
+
+> Embed into the given window id.
+
+**-H** *val*
+
+> Override the height. Parsed as MyMenu.height.
+
+**-h**
+
+> Print a small usage message to stderr.
+
+**-f** *font*
+
+> Override the font. See MyMenu.font.
+
+**-l** *layout*
+
+> Override the layout. Parsed as MyMenu.layout.
+
 **-m**
 
 > The user can select multiple entry via C-m. Please consult
-> *KEYS*
-> for more info.
+
+**-P** *padding*
+
+> Override the padding. See the MyMenu.padding resource.
 
 **-p** *prompt*
 
 > Override the prompt
+
+**-S** *color*
+
+> Override the highlighted completion background color. See
+> MyMenu.completion\_highlighted.background.
+
+**-s** *color*
+
+> Override the highlighted completion foreground color. See
+> MyMenu.completion\_highlighted.foreground.
+
+**-T** *color*
+
+> Override the prompt background color. See MyMenu.prompt.background.
+
+**-t** *color*
+
+> Override the prompt foreground color. See MyMenu.prompt.foreground.
+
+**-v**
+
+> Print version and exit.
+> *KEYS*
+> for more info.
+
+**-W** *val*
+
+> Override the width. Parsed as MyMenu.width.
 
 **-x** *val*
 
@@ -75,71 +142,6 @@ over the (respective) ones defined in the
 **-y** *val*
 
 > Override the positioning on the Y axis, parsed as the resource MyMenu.y
-
-**-P** *padding*
-
-> Override the padding. See the MyMenu.padding resource.
-
-**-l** *layout*
-
-> Override the layout. Parsed as MyMenu.layout.
-
-**-f** *font*
-
-> Override the font. See MyMenu.font.
-
-**-w** *val*
-
-> Override the width. Parsed as MyMenu.width.
-
-**-h** *val*
-
-> Override the height. Parsed as MyMenu.height.
-
-**-b** *borders*
-
-> Override the borders size. Parsed as MyMenu.border.size.
-
-**-B** *colors*
-
-> Override the borders color. Parsed as MyMenu.border.color.
-
-**-t** *color*
-
-> Override the prompt foreground color. See MyMenu.prompt.foreground.
-
-**-T** *color*
-
-> Override the prompt background color. See MyMenu.prompt.background.
-
-**-c** *color*
-
-> Override the completion foreground color. See
-> MyMenu.completion.foreground.
-
-**-C** *color*
-
-> Override the completion background color. See
-> MyMenu.completion.background.
-
-**-s** *color*
-
-> Override the highlighted completion foreground color. See
-> MyMenu.completion\_highlighted.foreground.
-
-**-S** *color*
-
-> Override the highlighted completion background color. See
-> MyMenu.completion\_highlighted.background.
-
-**-w** *window*
-
-> Embed into the given window id.
-
-**-d** *sep*
-
-> Optionally show only the text after the given separator. Defaults
-> to the whole line if the separator is not present.
 
 # RESOURCES
 
@@ -250,6 +252,18 @@ MyMenu.completion\_highlighted.foreground
 
 > The foreground of the selected completion.
 
+# COLORS
+
+MyMenu accept colors only in the form of:
+
+*	#rgb
+
+*	#rrggbb
+
+*	#aarrggbb
+
+The opacity is assumed 0xff (no transparency) if not provided.
+
 # KEYS
 
 This is the list of keybinding recognized by
@@ -333,8 +347,8 @@ fails.
 
 *	Select and play a song from the current mpd playlist
 
-		filter="%position%) %artist% - %title%"
-		if song=$(mpc playlist -f "$filter" | mymenu -p "Song: " -A -d ") "); then
+		fmt="%position%) %artist% - %title%"
+		if song=$(mpc playlist -f "$fmt" | mymenu -p "Song: " -A -d ") "); then
 		  mpc play $(echo $song | sed "s/).*$//")
 		fi
 
@@ -368,4 +382,4 @@ Omar Polo &lt;omar.polo@europecom.net&gt;
 	height of the window, remember to override the x and y coordinates as
 	well.
 
-OpenBSD 6.3 - August 13, 2018
+OpenBSD 6.4 - September 16, 2018

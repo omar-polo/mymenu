@@ -883,10 +883,10 @@ enum action parse_event(Display *d, XKeyPressedEvent *ev, XIC xic, char **input)
 
 // Given the name of the program (argv[0]?) print a small help on stderr
 void usage(char *prgname) {
-  fprintf(stderr, "%s [-hvam] [-p prompt] [-x coord] [-y coord] [-W width] [-H height]\n"
-                  "       [-P padding] [-l layout] [-f font] [-b borders] [-B colors]\n"
-                  "       [-t color] [-T color] [-c color] [-C color] [-s color] [-S color]\n"
-                  "       [-e window_id]\n", prgname);
+  fprintf(stderr, "%s [-Aamvh] [-B colors] [-b borders] [-C color] [-c color]\n"
+                  "       [-d separator] [-e window] [-f font] [-H height] [-l layout]\n"
+                  "       [-P padding] [-p prompt] [-T color] [-t color] [-S color]\n"
+                  "       [-s color] [-W width] [-x coord] [-y coord]\n", prgname);
 }
 
 // small function used in the event loop

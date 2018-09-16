@@ -8,24 +8,24 @@
 .Nm
 .Bk -words
 .Op Fl Aamvh
+.Op Fl B Ar colors
+.Op Fl b Ar borders
+.Op Fl C Ar color
+.Op Fl c Ar color
+.Op Fl d Ar separator
+.Op Fl e Ar window
+.Op Fl f Ar font
+.Op Fl H Ar height
+.Op Fl l Ar layout
+.Op Fl P Ar padding
 .Op Fl p Ar prompt
+.Op Fl T Ar color
+.Op Fl t Ar color
+.Op Fl S Ar color
+.Op Fl s Ar color
+.Op Fl W Ar width
 .Op Fl x Ar coord
 .Op Fl y Ar coord
-.Op Fl W Ar width
-.Op Fl H Ar height
-.Op Fl P Ar padding
-.Op Fl l Ar layout
-.Op Fl f Ar font
-.Op Fl b Ar borders
-.Op Fl B Ar colors
-.Op Fl t Ar color
-.Op Fl T Ar color
-.Op Fl c Ar color
-.Op Fl C Ar color
-.Op Fl s Ar color
-.Op Fl S Ar color
-.Op Fl e Ar window
-.Op Fl d Ar separator
 .Ek
 .Sh DESCRIPTION
 The
@@ -40,60 +40,62 @@ The following options are available and take the maximum precedence
 over the (respective) ones defined in the
 .Sy X Resource Database
 .Bl -tag -width indent-two
-.It Fl h
-Print a small usage message to stderr.
-.It Fl v
-Print version and exit.
-.It Fl a
-The first completion (if any) is always selected. This is like dmenu.
 .It Fl A
 The user must chose one of the option (or none) and is not able to
 arbitrary enter text
+.It Fl a
+The first completion (if any) is always selected. This is like dmenu.
+.It Fl B Ar colors
+Override the borders color. Parsed as MyMenu.border.color.
+.It Fl b Ar borders
+Override the borders size. Parsed as MyMenu.border.size.
+.It Fl C Ar color
+Override the completion background color. See
+MyMenu.completion.background.
+.It Fl c Ar color
+Override the completion foreground color. See
+MyMenu.completion.foreground.
+.It Fl d Ar separator
+Define a string to be used as a separator. Only the text after the
+separator will be rendered, but the original string will be
+returned. Useful to embed custom data on every entry. See the mpd
+example for hints on how this can be useful.
+.It Fl e Ar windowid
+Embed into the given window id.
+.It Fl H Ar val
+Override the height. Parsed as MyMenu.height.
+.It Fl h
+Print a small usage message to stderr.
+.It Fl f Ar font
+Override the font. See MyMenu.font.
+.It Fl l Ar layout
+Override the layout. Parsed as MyMenu.layout.
 .It Fl m
 The user can select multiple entry via C-m. Please consult
-.Sx KEYS
-for more info.
+.It Fl P Ar padding
+Override the padding. See the MyMenu.padding resource.
 .It Fl p Ar prompt
 Override the prompt
+.It Fl S Ar color
+Override the highlighted completion background color. See
+MyMenu.completion_highlighted.background.
+.It Fl s Ar color
+Override the highlighted completion foreground color. See
+MyMenu.completion_highlighted.foreground.
+.It Fl T Ar color
+Override the prompt background color. See MyMenu.prompt.background.
+.It Fl t Ar color
+Override the prompt foreground color. See MyMenu.prompt.foreground.
+.It Fl v
+Print version and exit.
+.Sx KEYS
+for more info.
+.It Fl W Ar val
+Override the width. Parsed as MyMenu.width.
 .It Fl x Ar val
 Override the positioning on the X axis, parsed as the resource MyMenu.x
 .It Fl y Ar val
 Override the positioning on the Y axis, parsed as the resource MyMenu.y
-.It Fl P Ar padding
-Override the padding. See the MyMenu.padding resource.
-.It Fl l Ar layout
-Override the layout. Parsed as MyMenu.layout.
-.It Fl f Ar font
-Override the font. See MyMenu.font.
-.It Fl w Ar val
-Override the width. Parsed as MyMenu.width.
-.It Fl h Ar val
-Override the height. Parsed as MyMenu.height.
-.It Fl b Ar borders
-Override the borders size. Parsed as MyMenu.border.size.
-.It Fl B Ar colors
-Override the borders color. Parsed as MyMenu.border.color.
-.It Fl t Ar color
-Override the prompt foreground color. See MyMenu.prompt.foreground.
-.It Fl T Ar color
-Override the prompt background color. See MyMenu.prompt.background.
-.It Fl c Ar color
-Override the completion foreground color. See
-MyMenu.completion.foreground.
-.It Fl C Ar color
-Override the completion background color. See
-MyMenu.completion.background.
-.It Fl s Ar color
-Override the highlighted completion foreground color. See
-MyMenu.completion_highlighted.foreground.
-.It Fl S Ar color
-Override the highlighted completion background color. See
-MyMenu.completion_highlighted.background.
-.It Fl w Ar window
-Embed into the given window id.
-.It Fl d Ar sep
-Optionally show only the text after the given separator. Defaults
-to the whole line if the separator is not present.
 .El
 .Sh RESOURCES
 .Bl -tag -width Ds
@@ -169,7 +171,18 @@ The background of the selected completion.
 .It MyMenu.completion_highlighted.foreground
 The foreground of the selected completion.
 .El
+.Sh COLORS
+MyMenu accept colors only in the form of:
+.Bl -bullet
+.It
+#rgb
+.It
+#rrggbb
+.It
+#aarrggbb
+.El
 
+The opacity is assumed 0xff (no transparency) if not provided.
 .Sh KEYS
 This is the list of keybinding recognized by
 .Li Nm Ns .
@@ -208,7 +221,6 @@ keybinding is a more elegant way to change, at runtime, the behaviour
 of the first completion.
 .El
 .Sh EXIT STATUS
-
 0 when the user select an entry, 1 when the user press Esc, EX_USAGE
 if used with wrong flags and EX_UNAVAILABLE if the connection to X
 fails.
@@ -228,8 +240,8 @@ EOF
 .It
 Select and play a song from the current mpd playlist
 .Bd -literal -offset indent
-filter="%position%) %artist% - %title%"
-if song=$(mpc playlist -f "$filter" | mymenu -p "Song: " -A -d ") "); then
+fmt="%position%) %artist% - %title%"
+if song=$(mpc playlist -f "$fmt" | mymenu -p "Song: " -A -d ") "); then
   mpc play $(echo $song | sed "s/).*$//")
 fi
 .Ed
