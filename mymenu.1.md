@@ -98,6 +98,8 @@ over the (respective) ones defined in the
 **-m**
 
 > The user can select multiple entry via C-m. Please consult
+> *KEYS*
+> for more info.
 
 **-P** *padding*
 
@@ -128,8 +130,6 @@ over the (respective) ones defined in the
 **-v**
 
 > Print version and exit.
-> *KEYS*
-> for more info.
 
 **-W** *val*
 
