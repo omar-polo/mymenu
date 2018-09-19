@@ -8,6 +8,7 @@
 #include <stdbool.h>
 #include <limits.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h> // XLookupString
@@ -54,8 +55,11 @@
 # define strcasestr strstr
 #endif
 
-// The initial number of items to read
-#define INITIAL_ITEMS 64
+// The number of char to read
+#define STDIN_CHUNKS 64
+
+// the number of lines to allocate in advance
+#define LINES_CHUNK 32
 
 // Abort if a is nil
 #define check_allocation(a) {                         \
@@ -365,44 +369,72 @@ char *normalize_str(const char *str) {
   return s;
 }
 
-// read an arbitrary amount of text until an EOF and store it in
-// lns. `items` is the capacity of lns. It may increase lns with
-// `realloc(3)` to store more line. Return the number of lines
-// read. The last item will always be a NULL pointer. It ignore the
-// "null" (empty) lines
-size_t readlines(char ***lns, size_t items) {
-  size_t n = 0;
-  char **lines = *lns;
+size_t read_stdin(char **buf) {
+  size_t offset = 0;
+  size_t len = STDIN_CHUNKS;
+  *buf = malloc(len * sizeof(char));
+  if (*buf == nil)
+    goto err;
+
   while (true) {
-    size_t linelen = 0;
-    ssize_t l = getline(lines + n, &linelen, stdin);
+    ssize_t r = read(0, *buf + offset, STDIN_CHUNKS);
+    if (r < 1)
+      return len;
 
-    if (l == -1) {
+    offset += r;
+
+    len += STDIN_CHUNKS;
+    *buf = realloc(*buf, len);
+    if (*buf == nil)
+      goto err;
+
+    for (size_t i = offset; i < len; ++i)
+      (*buf)[i] = '\0';
+  }
+
+ err:
+  fprintf(stderr, "Error in allocating memory for stdin.\n");
+  exit(EX_UNAVAILABLE);
+}
+
+//
+size_t readlines(char ***lns, char **buf) {
+  *buf = nil;
+  size_t len = read_stdin(buf);
+
+  size_t ll = LINES_CHUNK;
+  *lns = malloc(ll * sizeof(char*));
+  size_t lines = 0;
+  bool in_line = false;
+  for (size_t i = 0; i < len; i++) {
+    char c = (*buf)[i];
+
+    if (c == '\0')
       break;
-    }
 
-    if (linelen == 0 || lines[n][0] == '\n') {
-      free(lines[n]);
-      lines[n] = nil;
-      continue; // forget about this line
-    }
+    if (c == '\n')
+      (*buf)[i] = '\0';
 
-    strtok(lines[n], "\n"); // get rid of the \n
+    if (in_line && c == '\n')
+      in_line = false;
 
-    ++n;
+    if (!in_line && c != '\n') {
+      in_line = true;
+      (*lns)[lines] = (*buf) + i;
+      lines++;
 
-    if (n == items - 1) {
-      items += items >>1;
-      char **l = realloc(lines, sizeof(char*) * items);
-      check_allocation(l);
-      *lns = l;
-      lines = l;
+      if (lines == ll) { // resize
+        ll += LINES_CHUNK;
+        *lns = realloc(*lns, ll * sizeof(char*));
+        if (*lns == nil) {
+          fprintf(stderr, "Error in memory allocation.\n");
+          exit(EX_UNAVAILABLE);
+        }
+      }
     }
   }
 
-  n++;
-  lines[n] = nil;
-  return items;
+  return lines;
 }
 
 // Compute the dimension of the string str once rendered, return the
@@ -1113,9 +1145,10 @@ int main(int argc, char **argv) {
   }
 
   // read the lines from stdin
-  char **lines = calloc(INITIAL_ITEMS, sizeof(char*));
-  check_allocation(lines);
-  size_t nlines = readlines(&lines, INITIAL_ITEMS);
+  char **lines = nil;
+  char *buf = nil;
+  size_t nlines = readlines(&lines, &buf);
+
   char **vlines = nil;
   if (sep != nil) {
     int l = strlen(sep);
@@ -1668,13 +1701,7 @@ int main(int argc, char **argv) {
   free(fontname);
   free(text);
 
-  char *l = nil;
-  char **lns = lines;
-  while ((l = *lns) != nil) {
-    free(l);
-    ++lns;
-  }
-
+  free(buf);
   free(lines);
   free(vlines);
   compls_delete(cs);
