@@ -1094,7 +1094,7 @@ enum state loop(struct rendering *r, char **text, int *textlen, struct completio
 }
 
 int main(int argc, char **argv) {
-#ifdef HAVE_PLEDGE
+#ifdef __OpenBSD__
   // stdio & rpat: to read and write stdio/stdout
   // unix:         to connect to Xorg
   pledge("stdio rpath unix", "");
