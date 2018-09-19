@@ -347,9 +347,9 @@ fails.
 
 *	Select and play a song from the current mpd playlist
 
-		fmt="%position%) %artist% - %title%"
-		if song=$(mpc playlist -f "$fmt" | mymenu -p "Song: " -A -d ") "); then
-		  mpc play $(echo $song | sed "s/).*$//")
+		fmt="%position% %artist% - %title%"
+		if song=$(mpc playlist -f "$fmt" | mymenu -p "Song: " -A -d " "); then
+		    mpc play $(echo $song | sed "s/ .*$//")
 		fi
 
 # SEE ALSO
@@ -382,4 +382,4 @@ Omar Polo &lt;omar.polo@europecom.net&gt;
 	height of the window, remember to override the x and y coordinates as
 	well.
 
-OpenBSD 6.4 - September 16, 2018
+OpenBSD 6.4 - September 19, 2018

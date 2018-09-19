@@ -240,9 +240,9 @@ EOF
 .It
 Select and play a song from the current mpd playlist
 .Bd -literal -offset indent
-fmt="%position%) %artist% - %title%"
-if song=$(mpc playlist -f "$fmt" | mymenu -p "Song: " -A -d ") "); then
-  mpc play $(echo $song | sed "s/).*$//")
+fmt="%position% %artist% - %title%"
+if song=$(mpc playlist -f "$fmt" | mymenu -p "Song: " -A -d " "); then
+    mpc play $(echo $song | sed "s/ .*$//")
 fi
 .Ed
 .El
