@@ -208,9 +208,10 @@ void filter(struct completions *cs, char *text, char **lines, char **vlines) {
     vlines = lines;
 
   while (true) {
-    char *l = vlines[index] != nil ? vlines[index] : lines[index];
-    if (l == nil)
+    if (lines[index] == nil)
       break;
+
+    char *l = vlines[index] != nil ? vlines[index] : lines[index];
 
     if (strcasestr(l, text) != nil) {
       struct completion *c = &cs->completions[matching];
@@ -405,6 +406,8 @@ size_t readlines(char ***lns, char **buf) {
 
   size_t ll = LINES_CHUNK;
   *lns = malloc(ll * sizeof(char*));
+  if (*lns == nil) goto err;
+
   size_t lines = 0;
   bool in_line = false;
   for (size_t i = 0; i < len; i++) {
@@ -427,15 +430,18 @@ size_t readlines(char ***lns, char **buf) {
       if (lines == ll) { // resize
         ll += LINES_CHUNK;
         *lns = realloc(*lns, ll * sizeof(char*));
-        if (*lns == nil) {
-          fprintf(stderr, "Error in memory allocation.\n");
-          exit(EX_UNAVAILABLE);
-        }
+        if (*lns == nil) goto err;
       }
     }
   }
 
+  (*lns)[lines] = nil;
+
   return lines;
+
+ err:
+  fprintf(stderr, "Error in memory allocation.\n");
+  exit(EX_UNAVAILABLE);
 }
 
 // Compute the dimension of the string str once rendered, return the
@@ -1156,7 +1162,7 @@ int main(int argc, char **argv) {
     vlines = calloc(nlines, sizeof(char*));
     check_allocation(vlines);
 
-    for (int i = 0; lines[i] != nil; i++) {
+    for (size_t i = 0; i < nlines; i++) {
       char *t = strstr(lines[i], sep);
       if (t == nil)
         vlines[i] = lines[i];
