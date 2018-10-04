@@ -1818,7 +1818,7 @@ main(int argc, char **argv)
 	}
 
 	best_match_style = 0;
-	for (int i = 0; i < xis->count_styles; ++i) {
+	for (i = 0; i < xis->count_styles; ++i) {
 		XIMStyle ts = xis->supported_styles[i];
 		if (ts == (XIMPreeditNothing | XIMStatusNothing)) {
 			best_match_style = ts;
