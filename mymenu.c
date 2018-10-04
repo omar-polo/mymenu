@@ -5,7 +5,6 @@
 #include <locale.h>		/* setlocale */
 #include <unistd.h>
 #include <sysexits.h>
-#include <stdbool.h>
 #include <limits.h>
 #include <errno.h>
 #include <unistd.h>
@@ -108,9 +107,9 @@ struct rendering {
 
 	size_t		offset; /* scroll offset */
 
-	bool		free_text;
-	bool		first_selected;
-	bool		multiple_select;
+	short		free_text;
+	short		first_selected;
+	short		multiple_select;
 
 	/* four border width */
 	int		border_n;
@@ -118,7 +117,7 @@ struct rendering {
 	int		border_s;
 	int		border_w;
 
-	bool		horizontal_layout;
+	short		horizontal_layout;
 
 	/* prompt */
 	char		*ps1;
@@ -216,7 +215,7 @@ filter(struct completions *cs, char *text, char **lines, char **vlines)
 	if (vlines == NULL)
 		vlines = lines;
 
-	while (true) {
+	while (1) {
 		if (lines[index] == NULL)
 			break;
 
@@ -237,7 +236,7 @@ filter(struct completions *cs, char *text, char **lines, char **vlines)
 
 /* Update the given completion */
 void
-update_completions(struct completions *cs, char *text, char **lines, char **vlines, bool first_selected)
+update_completions(struct completions *cs, char *text, char **lines, char **vlines, short first_selected)
 {
 	filter(cs, text, lines, vlines);
 	if (first_selected && cs->length > 0)
@@ -251,7 +250,7 @@ update_completions(struct completions *cs, char *text, char **lines, char **vlin
  * set to `ERR'.
  */
 void
-complete(struct completions *cs, bool first_selected, bool p, char **text, int *textlen, enum state *status)
+complete(struct completions *cs, short first_selected, short p, char **text, int *textlen, enum state *status)
 {
 	struct completion	*n;
 	int			index;
@@ -354,21 +353,21 @@ void
 popw(char *w)
 {
 	int len;
-	bool in_word;
+	short in_word;
 
 	len = strlen(w);
 	if (len == 0)
 		return;
 
-	in_word = true;
-	while (true) {
+	in_word = 1;
+	while (1) {
 		char *e = popc(w);
 
 		if (e < w)
 			return;
 
 		if (in_word && isspace(*e))
-			in_word = false;
+			in_word = 0;
 
 		if (!in_word && !isspace(*e))
 			return;
@@ -427,7 +426,7 @@ read_stdin(char **buf)
 	if (*buf == NULL)
 		goto err;
 
-	while (true) {
+	while (1) {
 		ssize_t r;
 		size_t i;
 
@@ -456,7 +455,7 @@ size_t
 readlines(char ***lns, char **buf)
 {
 	size_t len, ll, lines;
-	bool in_line = false;
+	short in_line = 0;
 
 	lines = 0;
 
@@ -479,14 +478,14 @@ readlines(char ***lns, char **buf)
 			(*buf)[i] = '\0';
 
 		if (in_line && c == '\n')
-			in_line = false;
+			in_line = 0;
 
 		if (!in_line && c != '\n') {
-			in_line = true;
+			in_line = 1;
 			(*lns)[lines] = (*buf) + i;
 			lines++;
 
-			if (lines == ll) { // resize
+			if (lines == ll) { /* resize */
 				ll += LINES_CHUNK;
 				*lns = realloc(*lns, ll * sizeof(char*));
 				if (*lns == NULL)
@@ -712,12 +711,12 @@ set_win_atoms_hints(Display *d, Window w, int width, int height)
 	XClassHint	*class_hint;
 	XSizeHints	*size_hint;
 
-	type = XInternAtom(d, "_NET_WM_WINDOW_TYPE_DOCK", false);
+	type = XInternAtom(d, "_NET_WM_WINDOW_TYPE_DOCK", 0);
 	XChangeProperty(
 			d,
 			w,
-			XInternAtom(d, "_NET_WM_WINDOW_TYPE", false),
-			XInternAtom(d, "ATOM", false),
+			XInternAtom(d, "_NET_WM_WINDOW_TYPE", 0),
+			XInternAtom(d, "ATOM", 0),
 			32,
 			PropModeReplace,
 			(unsigned char *)&type,
@@ -725,22 +724,22 @@ set_win_atoms_hints(Display *d, Window w, int width, int height)
 			);
 
 	/* some window managers honor this properties */
-	type = XInternAtom(d, "_NET_WM_STATE_ABOVE", false);
+	type = XInternAtom(d, "_NET_WM_STATE_ABOVE", 0);
 	XChangeProperty(d,
 			w,
-			XInternAtom(d, "_NET_WM_STATE", false),
-			XInternAtom(d, "ATOM", false),
+			XInternAtom(d, "_NET_WM_STATE", 0),
+			XInternAtom(d, "ATOM", 0),
 			32,
 			PropModeReplace,
 			(unsigned char *)&type,
 			1
 			);
 
-	type = XInternAtom(d, "_NET_WM_STATE_FOCUSED", false);
+	type = XInternAtom(d, "_NET_WM_STATE_FOCUSED", 0);
 	XChangeProperty(d,
 			w,
-			XInternAtom(d, "_NET_WM_STATE", false),
-			XInternAtom(d, "ATOM", false),
+			XInternAtom(d, "_NET_WM_STATE", 0),
+			XInternAtom(d, "ATOM", 0),
 			32,
 			PropModeAppend,
 			(unsigned char *)&type,
@@ -794,7 +793,7 @@ grabfocus(Display *d, Window w)
 		XGetInputFocus(d, &focuswin, &revert_to_win);
 
 		if (focuswin == w)
-			return true;
+			return 1;
 
 		XSetInputFocus(d, w, RevertToParent, CurrentTime);
 		usleep(1000);
@@ -813,7 +812,7 @@ take_keyboard(Display *d, Window w)
 	int i;
 
 	for (i = 0; i < 100; i++) {
-		if (XGrabKeyboard(d, w, True, GrabModeAsync, GrabModeAsync, CurrentTime) == GrabSuccess)
+		if (XGrabKeyboard(d, w, 1, GrabModeAsync, GrabModeAsync, CurrentTime) == GrabSuccess)
 			return 1;
 		usleep(1000);
 	}
@@ -874,8 +873,9 @@ parse_color(const char *str, const char *def)
 		return 0U;
 }
 
-// Given a string, try to parse it as a number or return
-// `default_value'.
+/* 
+ * Given a string try to parse it as a number or return `default_value'.
+ */
 int
 parse_integer(const char *str, int default_value)
 {
@@ -885,7 +885,7 @@ parse_integer(const char *str, int default_value)
 	errno = 0;
 	lval = strtol(str, &ep, 10);
 
-	if (str[0] == '\0' || *ep != '\0') { // NaN
+	if (str[0] == '\0' || *ep != '\0') { /* NaN */
 		fprintf(stderr, "'%s' is not a valid number! Using %d as default.\n", str, default_value);
 		return default_value;
 	}
@@ -944,7 +944,7 @@ parse_csslike(const char *str)
 {
 	int	i;
 	char	*s, *token, **ret;
-	bool	any_null;
+	short	any_null;
 
 	s = strdup(str);
 	if (s == NULL)
@@ -976,7 +976,7 @@ parse_csslike(const char *str)
 
 	/* before we didn't check for the return type of strdup, here we will */
 
-	any_null = false;
+	any_null = 0;
 	for (i = 0; i < 4; ++i)
 		any_null = ret[i] == NULL || any_null;
 
@@ -1062,7 +1062,7 @@ confirm(enum state *status, struct rendering *r, struct completions *cs, char **
 		struct completion *c = cs->completions;
 		char *t;
 
-		while (true) {
+		while (1) {
 			if (index == 0)
 				break;
 			c++;
@@ -1142,13 +1142,13 @@ loop(struct rendering *r, char **text, int *textlen, struct completions *cs, cha
 			}
 
 			case PREV_COMPL: {
-				complete(cs, r->first_selected, true, text, textlen, &status);
+				complete(cs, r->first_selected, 1, text, textlen, &status);
 				r->offset = cs->selected;
 				break;
 			}
 
 			case NEXT_COMPL: {
-				complete(cs, r->first_selected, false, text, textlen, &status);
+				complete(cs, r->first_selected, 0, text, textlen, &status);
 				r->offset = cs->selected;
 				break;
 			}
@@ -1297,8 +1297,8 @@ main(int argc, char **argv)
 	int		border_n, border_e, border_s, border_w;
 	int		d_width, d_height;
 	enum state	status;
-	bool		first_selected, free_text, multiple_select;
-	bool		embed, horizontal_layout;
+	short		first_selected, free_text, multiple_select;
+	short		embed, horizontal_layout;
 	char		*sep, *parent_window_id;
 	char		**lines, *buf, **vlines;
 	char		*ps1, *fontname, *text, *xrm;
@@ -1310,10 +1310,10 @@ main(int argc, char **argv)
 #endif
 
 	sep = NULL;
-	first_selected = false;
+	first_selected = 0;
 	parent_window_id = NULL;
-	free_text = true;
-	multiple_select = false;
+	free_text = 1;
+	multiple_select = 0;
 
 	while ((ch = getopt(argc, argv, ARGS)) != -1) {
 		switch (ch) {
@@ -1332,11 +1332,11 @@ main(int argc, char **argv)
 			check_allocation(sep);
 		}
 		case 'A': {
-			free_text = false;
+			free_text = 0;
 			break;
 		}
 		case 'm': {
-			multiple_select = true;
+			multiple_select = 1;
 			break;
 		}
 		default:
@@ -1410,10 +1410,10 @@ main(int argc, char **argv)
 		return EX_UNAVAILABLE;
 	}
 
-	embed = true;
+	embed = 1;
 	if (! (parent_window_id && (parent_window = strtol(parent_window_id, NULL, 0)))) {
 		parent_window = DefaultRootWindow(d);
-		embed = false;
+		embed = 0;
 	}
 
 	/* get display size */
@@ -1427,7 +1427,7 @@ main(int argc, char **argv)
 		int		number_of_screens, monitors, i;
 		int		root_x, root_y, win_x, win_y;
 		unsigned int	mask;
-		bool		res;
+		short		res;
 
 		number_of_screens = XScreenCount(d);
 		for (i = 0; i < number_of_screens; ++i) {
@@ -1441,7 +1441,7 @@ main(int argc, char **argv)
 			root_y = 0;
 		}
 
-		// now find in which monitor the mice is on
+		/* Now find in which monitor the mice is */
 		info = XineramaQueryScreens(d, &monitors);
 		if (info) {
 			for (i = 0; i < monitors; ++i) {
@@ -1470,7 +1470,7 @@ main(int argc, char **argv)
 
 	border_n_bg = border_e_bg = border_s_bg = border_w_bg = parse_color("#000", NULL);
 
-	horizontal_layout = true;
+	horizontal_layout = 1;
 
 	/* Read the resources */
 	XrmInitialize();
@@ -1482,7 +1482,7 @@ main(int argc, char **argv)
 
 		xdb = XrmGetStringDatabase(xrm);
 
-		if (XrmGetResource(xdb, "MyMenu.font", "*", datatype, &value) == true) {
+		if (XrmGetResource(xdb, "MyMenu.font", "*", datatype, &value) == 1) {
 			free(fontname);
 			fontname = strdup(value.addr);
 			check_allocation(fontname);
@@ -1490,44 +1490,44 @@ main(int argc, char **argv)
 			fprintf(stderr, "no font defined, using %s\n", fontname);
 		}
 
-		if (XrmGetResource(xdb, "MyMenu.layout", "*", datatype, &value) == true)
+		if (XrmGetResource(xdb, "MyMenu.layout", "*", datatype, &value) == 1)
 			horizontal_layout = !strcmp(value.addr, "horizontal");
 		else
 			fprintf(stderr, "no layout defined, using horizontal\n");
 
-		if (XrmGetResource(xdb, "MyMenu.prompt", "*", datatype, &value) == true) {
+		if (XrmGetResource(xdb, "MyMenu.prompt", "*", datatype, &value) == 1) {
 			free(ps1);
 			ps1 = normalize_str(value.addr);
 		} else {
 			fprintf(stderr, "no prompt defined, using \"%s\" as default\n", ps1);
 		}
 
-		if (XrmGetResource(xdb, "MyMenu.width", "*", datatype, &value) == true)
+		if (XrmGetResource(xdb, "MyMenu.width", "*", datatype, &value) == 1)
 			width = parse_int_with_percentage(value.addr, width, d_width);
 		else
 			fprintf(stderr, "no width defined, using %d\n", width);
 
-		if (XrmGetResource(xdb, "MyMenu.height", "*", datatype, &value) == true)
+		if (XrmGetResource(xdb, "MyMenu.height", "*", datatype, &value) == 1)
 			height = parse_int_with_percentage(value.addr, height, d_height);
 		else
 			fprintf(stderr, "no height defined, using %d\n", height);
 
-		if (XrmGetResource(xdb, "MyMenu.x", "*", datatype, &value) == true)
+		if (XrmGetResource(xdb, "MyMenu.x", "*", datatype, &value) == 1)
 			x = parse_int_with_pos(value.addr, x, d_width, width);
 		else
 			fprintf(stderr, "no x defined, using %d\n", x);
 
-		if (XrmGetResource(xdb, "MyMenu.y", "*", datatype, &value) == true)
+		if (XrmGetResource(xdb, "MyMenu.y", "*", datatype, &value) == 1)
 			y = parse_int_with_pos(value.addr, y, d_height, height);
 		else
 			fprintf(stderr, "no y defined, using %d\n", y);
 
-		if (XrmGetResource(xdb, "MyMenu.padding", "*", datatype, &value) == true)
+		if (XrmGetResource(xdb, "MyMenu.padding", "*", datatype, &value) == 1)
 			padding = parse_integer(value.addr, padding);
 		else
 			fprintf(stderr, "no padding defined, using %d\n", padding);
 
-		if (XrmGetResource(xdb, "MyMenu.border.size", "*", datatype, &value) == true) {
+		if (XrmGetResource(xdb, "MyMenu.border.size", "*", datatype, &value) == 1) {
 			char **borders;
 
 			borders = parse_csslike(value.addr);
@@ -1542,32 +1542,32 @@ main(int argc, char **argv)
 			fprintf(stderr, "no border defined, using 0.\n");
 
 		/* Prompt */
-		if (XrmGetResource(xdb, "MyMenu.prompt.foreground", "*", datatype, &value) == true)
+		if (XrmGetResource(xdb, "MyMenu.prompt.foreground", "*", datatype, &value) == 1)
 			p_fg = parse_color(value.addr, "#fff");
 
-		if (XrmGetResource(xdb, "MyMenu.prompt.background", "*", datatype, &value) == true)
+		if (XrmGetResource(xdb, "MyMenu.prompt.background", "*", datatype, &value) == 1)
 			p_bg = parse_color(value.addr, "#000");
 
 		/* Completions */
-		if (XrmGetResource(xdb, "MyMenu.completion.foreground", "*", datatype, &value) == true)
+		if (XrmGetResource(xdb, "MyMenu.completion.foreground", "*", datatype, &value) == 1)
 			compl_fg = parse_color(value.addr, "#fff");
 
-		if (XrmGetResource(xdb, "MyMenu.completion.background", "*", datatype, &value) == true)
+		if (XrmGetResource(xdb, "MyMenu.completion.background", "*", datatype, &value) == 1)
 			compl_bg = parse_color(value.addr, "#000");
 		else
 			compl_bg = parse_color("#000", NULL);
 
 		/* Completion Highlighted */
-		if (XrmGetResource(xdb, "MyMenu.completion_highlighted.foreground", "*", datatype, &value) == true)
+		if (XrmGetResource(xdb, "MyMenu.completion_highlighted.foreground", "*", datatype, &value) == 1)
 			compl_highlighted_fg = parse_color(value.addr, "#000");
 
-		if (XrmGetResource(xdb, "MyMenu.completion_highlighted.background", "*", datatype, &value) == true)
+		if (XrmGetResource(xdb, "MyMenu.completion_highlighted.background", "*", datatype, &value) == 1)
 			compl_highlighted_bg = parse_color(value.addr, "#fff");
 		else
 			compl_highlighted_bg = parse_color("#fff", NULL);
 
-		// border
-		if (XrmGetResource(xdb, "MyMenu.border.color", "*", datatype, &value) == true) {
+		/* Border */
+		if (XrmGetResource(xdb, "MyMenu.border.color", "*", datatype, &value) == 1) {
 			char **colors;
 			colors = parse_csslike(value.addr);
 			if (colors != NULL) {
@@ -1580,12 +1580,12 @@ main(int argc, char **argv)
 		}
 	}
 
-	// second round of args parsing
-	optind = 0; // reset the option index
+	/* Second round of args parsing */
+	optind = 0;		/* reset the option index */
 	while ((ch = getopt(argc, argv, ARGS)) != -1) {
 		switch (ch) {
 		case 'a':
-			first_selected = true;
+			first_selected = 1;
 			break;
 
 		case 'A':
@@ -1690,9 +1690,9 @@ main(int argc, char **argv)
 	 * update the completion here */
 	update_completions(cs, text, lines, vlines, first_selected);
 
-	// create the window
+	/* Create the window */
 	attr.colormap = cmap;
-	attr.override_redirect = true;
+	attr.override_redirect = 1;
 	attr.border_pixel = 0;
 	attr.background_pixel = 0x80808080;
 	attr.event_mask = ExposureMask | KeyPressMask | VisibilityChangeMask;
