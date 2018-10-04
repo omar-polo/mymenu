@@ -8,7 +8,7 @@ CDEFS    = -DUSE_XINERAMA -DUSE_XFT -DUSE_STRCASESTR
 CC	 ?= cc
 LIBS	 = `pkg-config --libs x11 $(OPTIONAL)`
 OPTIM    = -O3
-CFLAGS 	 = $(CDEFS) -DVERSION=\"$(VERSION)\" `pkg-config --cflags x11 $(OPTIONAL)`
+CFLAGS 	 = $(CDEFS) -std=c89 -DVERSION=\"$(VERSION)\" `pkg-config --cflags x11 $(OPTIONAL)`
 
 .PHONY: all clean install debug no_xft no_xinerama no_xft_xinerama gnu manpage
 
