@@ -55,10 +55,10 @@
 #endif
 
 /* The number of char to read */
-#define STDIN_CHUNKS 64
+#define STDIN_CHUNKS 128
 
 /* The number of lines to allocate in advance */
-#define LINES_CHUNK 32
+#define LINES_CHUNK 64
 
 /* Abort on NULL */
 #define check_allocation(a) {				\
@@ -166,7 +166,7 @@ typedef union {
 		uint8_t	g;
 		uint8_t	r;
 		uint8_t	a;
-	};
+	} rgba;
 	uint32_t	v;
 } rgba_t;
 
@@ -211,6 +211,7 @@ filter(struct completions *cs, char *text, char **lines, char **vlines)
 {
 	size_t	index = 0;
 	size_t	matching = 0;
+	char	*l;
 
 	if (vlines == NULL)
 		vlines = lines;
@@ -219,7 +220,7 @@ filter(struct completions *cs, char *text, char **lines, char **vlines)
 		if (lines[index] == NULL)
 			break;
 
-		char *l = vlines[index] != NULL ? vlines[index] : lines[index];
+		l = vlines[index] != NULL ? vlines[index] : lines[index];
 
 		if (strcasestr(l, text) != NULL) {
 			struct completion *c = &cs->completions[matching];
@@ -298,8 +299,9 @@ complete(struct completions *cs, short first_selected, short p, char **text, int
 int
 pushc(char **p, int maxlen, char c)
 {
-	int len = strnlen(*p, maxlen);
+	int	len;
 
+	len = strnlen(*p, maxlen);
 	if (!(len < maxlen -2)) {
 		char *newptr;
 
@@ -334,8 +336,8 @@ popc(char *p)
 	do {
 		char c = *e;
 
-		*e = 0;
-		e--;
+		*e = '\0';
+		e -= 1;
 
 		/*
 		 * If c is a starting byte (11......) or is under
@@ -352,14 +354,12 @@ popc(char *p)
 void
 popw(char *w)
 {
-	int len;
-	short in_word;
+	int	len;
+	short	in_word = 1;
 
-	len = strlen(w);
-	if (len == 0)
+	if ((len = strlen(w)) == 0)
 		return;
 
-	in_word = 1;
 	while (1) {
 		char *e = popc(w);
 
@@ -381,11 +381,10 @@ popw(char *w)
 char *
 normalize_str(const char *str)
 {
-	int len, p;
-	char *s;
+	int	len, p;
+	char	*s;
 
-	len = strlen(str);
-	if (len == 0)
+	if ((len = strlen(str)) == 0)
 		return NULL;
 
 	s = calloc(len, sizeof(char));
@@ -419,8 +418,8 @@ normalize_str(const char *str)
 size_t
 read_stdin(char **buf)
 {
-	size_t offset = 0;
-	size_t len = STDIN_CHUNKS;
+	size_t	offset = 0;
+	size_t	len = STDIN_CHUNKS;
 
 	*buf = malloc(len * sizeof(char));
 	if (*buf == NULL)
@@ -454,8 +453,8 @@ read_stdin(char **buf)
 size_t
 readlines(char ***lns, char **buf)
 {
-	size_t len, ll, lines;
-	short in_line = 0;
+	size_t	i, len, ll, lines;
+	short	in_line = 0;
 
 	lines = 0;
 
@@ -468,7 +467,7 @@ readlines(char ***lns, char **buf)
 	if (*lns == NULL)
 		goto err;
 
-	for (size_t i = 0; i < len; i++) {
+	for (i = 0; i < len; i++) {
 		char c = (*buf)[i];
 
 		if (c == '\0')
@@ -510,15 +509,15 @@ readlines(char ***lns, char **buf)
 int
 text_extents(char *str, int len, struct rendering *r, int *ret_width, int *ret_height)
 {
-	int height;
-	int width;
+	int	height;
+	int	width;
 #ifdef USE_XFT
-	XGlyphInfo gi;
+	XGlyphInfo	gi;
 	XftTextExtentsUtf8(r->d, r->font, str, len, &gi);
 	height = r->font->ascent - r->font->descent;
 	width = gi.width - gi.x;
 #else
-	XRectangle rect;
+	XRectangle	rect;
 	XmbTextExtents(r->font, str, len, NULL, &rect);
 	height = rect.height;
 	width = rect.width;
@@ -551,16 +550,15 @@ draw_string(char *str, int len, int x, int y, struct rendering *r, enum text_typ
 char *
 strdupn(char *str)
 {
-	int len, i;
-	char *dup;
+	int	len, i;
+	char	*dup;
 
 	len = strlen(str);
 
 	if (str == NULL || len == 0)
 		return NULL;
 
-	dup = strdup(str);
-	if (dup == NULL)
+	if ((dup = strdup(str)) == NULL)
 		return NULL;
 
 	for (i = 0; i < len; ++i)
@@ -712,8 +710,7 @@ set_win_atoms_hints(Display *d, Window w, int width, int height)
 	XSizeHints	*size_hint;
 
 	type = XInternAtom(d, "_NET_WM_WINDOW_TYPE_DOCK", 0);
-	XChangeProperty(
-			d,
+	XChangeProperty(d,
 			w,
 			XInternAtom(d, "_NET_WM_WINDOW_TYPE", 0),
 			XInternAtom(d, "ATOM", 0),
@@ -752,6 +749,7 @@ set_win_atoms_hints(Display *d, Window w, int width, int height)
 		fprintf(stderr, "Could not allocate memory for class hint\n");
 		exit(EX_UNAVAILABLE);
 	}
+
 	class_hint->res_name = resname;
 	class_hint->res_class = resclass;
 	XSetClassHint(d, w, class_hint);
@@ -762,6 +760,7 @@ set_win_atoms_hints(Display *d, Window w, int width, int height)
 		fprintf(stderr, "Could not allocate memory for size hint\n");
 		exit(EX_UNAVAILABLE);
 	}
+
 	size_hint->flags = PMinSize | PBaseSize;
 	size_hint->min_width = width;
 	size_hint->base_width = width;
@@ -810,7 +809,6 @@ int
 take_keyboard(Display *d, Window w)
 {
 	int i;
-
 	for (i = 0; i < 100; i++) {
 		if (XGrabKeyboard(d, w, 1, GrabModeAsync, GrabModeAsync, CurrentTime) == GrabSuccess)
 			return 1;
@@ -846,20 +844,20 @@ parse_color(const char *str, const char *def)
 	switch (len-1) {
 	case 3:
 		/* expand #rgb -> #rrggbb */
-		tmp.v = (tmp.v & 0xf00) * 0x1100
+		tmp.v =   (tmp.v & 0xf00) * 0x1100
 			| (tmp.v & 0x0f0) * 0x0110
 			| (tmp.v & 0x00f) * 0x0011;
 	case 6:
 		/* assume 0xff opacity */
-		tmp.a = 0xff;
+		tmp.rgba.a = 0xff;
 		break;
 	} /* colors in #aarrggbb need no adjustments */
 
 	/* premultiply the alpha */
-	if (tmp.a) {
-		tmp.r = (tmp.r * tmp.a) / 255;
-		tmp.g = (tmp.g * tmp.a) / 255;
-		tmp.b = (tmp.b * tmp.a) / 255;
+	if (tmp.rgba.a) {
+		tmp.rgba.r = (tmp.rgba.r * tmp.rgba.a) / 255;
+		tmp.rgba.g = (tmp.rgba.g * tmp.rgba.a) / 255;
+		tmp.rgba.b = (tmp.rgba.b * tmp.rgba.a) / 255;
 		return tmp.v;
 	}
 
@@ -916,6 +914,7 @@ parse_int_with_percentage(const char *str, int default_value, int max)
 		free(cpy);
 		return val * max / 100;
 	}
+
 	return parse_integer(str, default_value);
 }
 
@@ -942,7 +941,7 @@ parse_int_with_pos(const char *str, int default_value, int max, int self)
 char **
 parse_csslike(const char *str)
 {
-	int	i;
+	int	i, j;
 	char	*s, *token, **ret;
 	short	any_null;
 
@@ -956,14 +955,11 @@ parse_csslike(const char *str)
 		return NULL;
 	}
 
-	i = 0;
-	while ((token = strsep(&s, " ")) != NULL && i < 4) {
+	for (i = 0; (token = strsep(&s, " ")) != NULL && i < 4; ++i)
 		ret[i] = strdup(token);
-		i++;
-	}
 
 	if (i == 1)
-		for (int j = 1; j < 4; j++)
+		for (j = 1; j < 4; j++)
 			ret[j] = strdup(ret[0]);
 
 	if (i == 2) {
@@ -1264,6 +1260,64 @@ load_font(struct rendering *r, const char *fontname)
 }
 
 void
+xim_init(struct rendering *r, XrmDatabase *xdb)
+{
+	XIM		xim;
+	XIMStyle	best_match_style;
+	XIMStyles	*xis;
+	int		i;
+
+	/* Open the X input method */
+	xim = XOpenIM(r->d, *xdb, resname, resclass);
+	check_allocation(xim);
+
+	if (XGetIMValues(xim, XNQueryInputStyle, &xis, NULL) || !xis) {
+		fprintf(stderr, "Input Styles could not be retrieved\n");
+		exit(EX_UNAVAILABLE);
+	}
+
+	best_match_style = 0;
+	for (i = 0; i < xis->count_styles; ++i) {
+		XIMStyle ts = xis->supported_styles[i];
+		if (ts == (XIMPreeditNothing | XIMStatusNothing)) {
+			best_match_style = ts;
+			break;
+		}
+	}
+	XFree(xis);
+
+	if (!best_match_style)
+		fprintf(stderr, "No matching input style could be determined\n");
+
+	r->xic = XCreateIC(xim, XNInputStyle, best_match_style, XNClientWindow, r->w, XNFocusWindow, r->w, NULL);
+	check_allocation(r->xic);
+}
+
+void
+create_window(struct rendering *r, Window parent_window, Colormap cmap, XVisualInfo vinfo, int x, int y, int ox, int oy)
+{
+	XSetWindowAttributes	attr;
+
+	/* Create the window */
+	attr.colormap = cmap;
+	attr.override_redirect = 1;
+	attr.border_pixel = 0;
+	attr.background_pixel = 0x80808080;
+	attr.event_mask = ExposureMask | KeyPressMask | VisibilityChangeMask;
+
+	r->w = XCreateWindow(r->d,
+		parent_window,
+		x + ox, y + oy,
+		r->width, r->height,
+		0,
+		vinfo.depth,
+		InputOutput,
+		vinfo.visual,
+		CWBorderPixel | CWBackPixel | CWColormap | CWEventMask | CWOverrideRedirect,
+		&attr);
+}
+
+void
 usage(char *prgname)
 {
 	fprintf(stderr, "%s [-Aamvh] [-B colors] [-b borders] [-C color] [-c color]\n"
@@ -1275,33 +1329,24 @@ usage(char *prgname)
 int
 main(int argc, char **argv)
 {
-	struct completions *cs;
-	XSetWindowAttributes attr;
-
-	size_t		nlines, i;
-	Display		*d;
-	Window		parent_window, w;
-	XVisualInfo	vinfo;
-	Colormap	cmap;
-	XGCValues	values;
-	XrmDatabase	xdb;
-	XIM		xim;
-	XIMStyle	best_match_style;
-	XIMStyles	*xis;
-	unsigned long	p_fg, compl_fg, compl_highlighted_fg;
-	unsigned long	p_bg, compl_bg, compl_highlighted_bg;
-	unsigned long	border_n_bg, border_e_bg, border_s_bg, border_w_bg;
-	int		ch;
-	int		offset_x, offset_y, width, height, x, y;
-	int		padding, textlen;
-	int		border_n, border_e, border_s, border_w;
-	int		d_width, d_height;
-	enum state	status;
-	short		first_selected, free_text, multiple_select;
-	short		embed, horizontal_layout;
-	char		*sep, *parent_window_id;
-	char		**lines, *buf, **vlines;
-	char		*ps1, *fontname, *text, *xrm;
+	struct completions	*cs;
+	struct rendering	r;
+	XVisualInfo		vinfo;
+	Colormap		cmap;
+	size_t			nlines, i;
+	Window			parent_window;
+	XrmDatabase		xdb;
+	unsigned long		p_fg, compl_fg, compl_highlighted_fg;
+	unsigned long		p_bg, compl_bg, compl_highlighted_bg;
+	unsigned long		border_n_bg, border_e_bg, border_s_bg, border_w_bg;
+	enum state		status;
+	int			ch;
+	int			offset_x, offset_y, x, y;
+	int			textlen, d_width, d_height;
+	short			embed;
+	char			*sep, *parent_window_id;
+	char			**lines, *buf, **vlines;
+	char			*fontname, *text, *xrm;
 
 #ifdef __OpenBSD__
 	/* stdio & rpath: to read/write stdio/stdout/stderr */
@@ -1310,10 +1355,12 @@ main(int argc, char **argv)
 #endif
 
 	sep = NULL;
-	first_selected = 0;
 	parent_window_id = NULL;
-	free_text = 1;
-	multiple_select = 0;
+
+	r.first_selected = 0;
+	r.free_text = 1;
+	r.multiple_select = 0;
+	r.offset = 0;
 
 	while ((ch = getopt(argc, argv, ARGS)) != -1) {
 		switch (ch) {
@@ -1332,11 +1379,11 @@ main(int argc, char **argv)
 			check_allocation(sep);
 		}
 		case 'A': {
-			free_text = 0;
+			r.free_text = 0;
 			break;
 		}
 		case 'm': {
-			multiple_select = 1;
+			r.multiple_select = 1;
 			break;
 		}
 		default:
@@ -1374,22 +1421,22 @@ main(int argc, char **argv)
 	offset_x = offset_y = 0;
 
 	/* default width and height */
-	width = 400;
-	height = 20;
+	r.width = 400;
+	r.height = 20;
 
 	/* default position on the screen */
 	x = y = 0;
 
 	/* default padding */
-	padding = 10;
+	r.padding = 10;
 
 	/* default borders */
-	border_n = border_e = border_s = border_w = 0;
+	r.border_n = r.border_e = r.border_s = r.border_w = 0;
 
 	/* the prompt. We duplicate the string so later is easy to
 	 * free (in the case it's been overwritten by the user) */
-	ps1 = strdup("$ ");
-	check_allocation(ps1);
+	r.ps1 = strdup("$ ");
+	check_allocation(r.ps1);
 
 	/* same for the font name */
 	fontname = strdup(default_fontname);
@@ -1404,37 +1451,39 @@ main(int argc, char **argv)
 	check_allocation(cs);
 
 	/* start talking to xorg */
-	d = XOpenDisplay(NULL);
-	if (d == NULL) {
+	r.d = XOpenDisplay(NULL);
+	if (r.d == NULL) {
 		fprintf(stderr, "Could not open display!\n");
 		return EX_UNAVAILABLE;
 	}
 
 	embed = 1;
 	if (! (parent_window_id && (parent_window = strtol(parent_window_id, NULL, 0)))) {
-		parent_window = DefaultRootWindow(d);
+		parent_window = DefaultRootWindow(r.d);
 		embed = 0;
 	}
 
 	/* get display size */
-	get_wh(d, &parent_window, &d_width, &d_height);
+	get_wh(r.d, &parent_window, &d_width, &d_height);
 
 #ifdef USE_XINERAMA
-	if (!embed && XineramaIsActive(d)) { /* find the mice */
+	if (!embed && XineramaIsActive(r.d)) { /* find the mice */
 		XineramaScreenInfo *info;
-		Window		r;
+		Window		rr;
 		Window		root;
 		int		number_of_screens, monitors, i;
 		int		root_x, root_y, win_x, win_y;
 		unsigned int	mask;
 		short		res;
 
-		number_of_screens = XScreenCount(d);
+		number_of_screens = XScreenCount(r.d);
 		for (i = 0; i < number_of_screens; ++i) {
-			root = XRootWindow(d, i);
-			res = XQueryPointer(d, root, &r, &r, &root_x, &root_y, &win_x, &win_y, &mask);
-			if (res) break;
+			root = XRootWindow(r.d, i);
+			res = XQueryPointer(r.d, root, &rr, &rr, &root_x, &root_y, &win_x, &win_y, &mask);
+			if (res)
+				break;
 		}
+
 		if (!res) {
 			fprintf(stderr, "No mouse found.\n");
 			root_x = 0;
@@ -1442,7 +1491,7 @@ main(int argc, char **argv)
 		}
 
 		/* Now find in which monitor the mice is */
-		info = XineramaQueryScreens(d, &monitors);
+		info = XineramaQueryScreens(r.d, &monitors);
 		if (info) {
 			for (i = 0; i < monitors; ++i) {
 				if (info[i].x_org <= root_x && root_x <= (info[i].x_org + info[i].width)
@@ -1458,9 +1507,9 @@ main(int argc, char **argv)
 		XFree(info);
 	}
 #endif
-	XMatchVisualInfo(d, DefaultScreen(d), 32, TrueColor, &vinfo);
 
-	cmap = XCreateColormap(d, XDefaultRootWindow(d), vinfo.visual, AllocNone);
+	XMatchVisualInfo(r.d, DefaultScreen(r.d), 32, TrueColor, &vinfo);
+	cmap = XCreateColormap(r.d, XDefaultRootWindow(r.d), vinfo.visual, AllocNone);
 
 	p_fg = compl_fg = parse_color("#fff", NULL);
 	compl_highlighted_fg = parse_color("#000", NULL);
@@ -1470,11 +1519,11 @@ main(int argc, char **argv)
 
 	border_n_bg = border_e_bg = border_s_bg = border_w_bg = parse_color("#000", NULL);
 
-	horizontal_layout = 1;
+	r.horizontal_layout = 1;
 
 	/* Read the resources */
 	XrmInitialize();
-	xrm = XResourceManagerString(d);
+	xrm = XResourceManagerString(r.d);
 	xdb = NULL;
 	if (xrm != NULL) {
 		XrmValue value;
@@ -1491,51 +1540,51 @@ main(int argc, char **argv)
 		}
 
 		if (XrmGetResource(xdb, "MyMenu.layout", "*", datatype, &value) == 1)
-			horizontal_layout = !strcmp(value.addr, "horizontal");
+			r.horizontal_layout = !strcmp(value.addr, "horizontal");
 		else
 			fprintf(stderr, "no layout defined, using horizontal\n");
 
 		if (XrmGetResource(xdb, "MyMenu.prompt", "*", datatype, &value) == 1) {
-			free(ps1);
-			ps1 = normalize_str(value.addr);
+			free(r.ps1);
+			r.ps1 = normalize_str(value.addr);
 		} else {
-			fprintf(stderr, "no prompt defined, using \"%s\" as default\n", ps1);
+			fprintf(stderr, "no prompt defined, using \"%s\" as default\n", r.ps1);
 		}
 
 		if (XrmGetResource(xdb, "MyMenu.width", "*", datatype, &value) == 1)
-			width = parse_int_with_percentage(value.addr, width, d_width);
+			r.width = parse_int_with_percentage(value.addr, r.width, d_width);
 		else
-			fprintf(stderr, "no width defined, using %d\n", width);
+			fprintf(stderr, "no width defined, using %d\n", r.width);
 
 		if (XrmGetResource(xdb, "MyMenu.height", "*", datatype, &value) == 1)
-			height = parse_int_with_percentage(value.addr, height, d_height);
+			r.height = parse_int_with_percentage(value.addr, r.height, d_height);
 		else
-			fprintf(stderr, "no height defined, using %d\n", height);
+			fprintf(stderr, "no height defined, using %d\n", r.height);
 
 		if (XrmGetResource(xdb, "MyMenu.x", "*", datatype, &value) == 1)
-			x = parse_int_with_pos(value.addr, x, d_width, width);
+			x = parse_int_with_pos(value.addr, x, d_width, r.width);
 		else
 			fprintf(stderr, "no x defined, using %d\n", x);
 
 		if (XrmGetResource(xdb, "MyMenu.y", "*", datatype, &value) == 1)
-			y = parse_int_with_pos(value.addr, y, d_height, height);
+			y = parse_int_with_pos(value.addr, y, d_height, r.height);
 		else
 			fprintf(stderr, "no y defined, using %d\n", y);
 
 		if (XrmGetResource(xdb, "MyMenu.padding", "*", datatype, &value) == 1)
-			padding = parse_integer(value.addr, padding);
+			r.padding = parse_integer(value.addr, r.padding);
 		else
-			fprintf(stderr, "no padding defined, using %d\n", padding);
+			fprintf(stderr, "no padding defined, using %d\n", r.padding);
 
 		if (XrmGetResource(xdb, "MyMenu.border.size", "*", datatype, &value) == 1) {
 			char **borders;
 
 			borders = parse_csslike(value.addr);
 			if (borders != NULL) {
-				border_n = parse_integer(borders[0], 0);
-				border_e = parse_integer(borders[1], 0);
-				border_s = parse_integer(borders[2], 0);
-				border_w = parse_integer(borders[3], 0);
+				r.border_n = parse_integer(borders[0], 0);
+				r.border_e = parse_integer(borders[1], 0);
+				r.border_s = parse_integer(borders[2], 0);
+				r.border_w = parse_integer(borders[3], 0);
 			} else
 				fprintf(stderr, "error while parsing MyMenu.border.size\n");
 		} else
@@ -1585,9 +1634,8 @@ main(int argc, char **argv)
 	while ((ch = getopt(argc, argv, ARGS)) != -1) {
 		switch (ch) {
 		case 'a':
-			first_selected = 1;
+			r.first_selected = 1;
 			break;
-
 		case 'A':
 			/* free_text -- already catched */
 		case 'd':
@@ -1596,28 +1644,27 @@ main(int argc, char **argv)
 			/* embedding mymenu this case was already catched. */
 		case 'm':
 			/* multiple selection this case was already catched. */
-
 			break;
 		case 'p': {
 			char *newprompt;
 			newprompt = strdup(optarg);
 			if (newprompt != NULL) {
-				free(ps1);
-				ps1 = newprompt;
+				free(r.ps1);
+				r.ps1 = newprompt;
 			}
 			break;
 		}
 		case 'x':
-			x = parse_int_with_pos(optarg, x, d_width, width);
+			x = parse_int_with_pos(optarg, x, d_width, r.width);
 			break;
 		case 'y':
-			y = parse_int_with_pos(optarg, y, d_height, height);
+			y = parse_int_with_pos(optarg, y, d_height, r.height);
 			break;
 		case 'P':
-			padding = parse_integer(optarg, padding);
+			r.padding = parse_integer(optarg, r.padding);
 			break;
 		case 'l':
-			horizontal_layout = !strcmp(optarg, "horizontal");
+			r.horizontal_layout = !strcmp(optarg, "horizontal");
 			break;
 		case 'f': {
 			char *newfont;
@@ -1628,18 +1675,18 @@ main(int argc, char **argv)
 			break;
 		}
 		case 'W':
-			width = parse_int_with_percentage(optarg, width, d_width);
+			r.width = parse_int_with_percentage(optarg, r.width, d_width);
 			break;
 		case 'H':
-			height = parse_int_with_percentage(optarg, height, d_height);
+			r.height = parse_int_with_percentage(optarg, r.height, d_height);
 			break;
 		case 'b': {
 			char **borders;
 			if ((borders = parse_csslike(optarg)) != NULL) {
-				border_n = parse_integer(borders[0], 0);
-				border_e = parse_integer(borders[1], 0);
-				border_s = parse_integer(borders[2], 0);
-				border_w = parse_integer(borders[3], 0);
+				r.border_n = parse_integer(borders[0], 0);
+				r.border_e = parse_integer(borders[1], 0);
+				r.border_s = parse_integer(borders[2], 0);
+				r.border_w = parse_integer(borders[3], 0);
 			} else
 				fprintf(stderr, "Error parsing b option\n");
 			break;
@@ -1655,30 +1702,24 @@ main(int argc, char **argv)
 				fprintf(stderr, "error while parsing B option\n");
 			break;
 		}
-		case 't': {
+		case 't':
 			p_fg = parse_color(optarg, NULL);
 			break;
-		}
-		case 'T': {
+		case 'T':
 			p_bg = parse_color(optarg, NULL);
 			break;
-		}
-		case 'c': {
+		case 'c':
 			compl_fg = parse_color(optarg, NULL);
 			break;
-		}
-		case 'C': {
+		case 'C':
 			compl_bg = parse_color(optarg, NULL);
 			break;
-		}
-		case 's': {
+		case 's':
 			compl_highlighted_fg = parse_color(optarg, NULL);
 			break;
-		}
-		case 'S': {
+		case 'S':
 			compl_highlighted_bg = parse_color(optarg, NULL);
 			break;
-		}
 		default:
 			fprintf(stderr, "Unrecognized option %c\n", ch);
 			status = ERR;
@@ -1688,83 +1729,56 @@ main(int argc, char **argv)
 
 	/* since only now we know if the first should be selected,
 	 * update the completion here */
-	update_completions(cs, text, lines, vlines, first_selected);
+	update_completions(cs, text, lines, vlines, r.first_selected);
+
+	/* update the prompt lenght, only now we surely know the length of it */
+	r.ps1len = strlen(r.ps1);
 
 	/* Create the window */
-	attr.colormap = cmap;
-	attr.override_redirect = 1;
-	attr.border_pixel = 0;
-	attr.background_pixel = 0x80808080;
-	attr.event_mask = ExposureMask | KeyPressMask | VisibilityChangeMask;
-
-	w = XCreateWindow(d,
-		parent_window,
-		x + offset_x, y + offset_y,
-		width, height,
-		0,
-		vinfo.depth,
-		InputOutput,
-		vinfo.visual,
-		CWBorderPixel | CWBackPixel | CWColormap | CWEventMask | CWOverrideRedirect,
-		&attr);
-
-	set_win_atoms_hints(d, w, width, height);
-
-	XSelectInput(d, w, StructureNotifyMask | KeyPressMask | KeymapStateMask | ButtonPressMask);
-	XMapRaised(d, w);
+	create_window(&r, parent_window, cmap, vinfo, x, y, offset_x, offset_y);
+	set_win_atoms_hints(r.d, r.w, r.width, r.height);
+	XSelectInput(r.d, r.w, StructureNotifyMask | KeyPressMask | KeymapStateMask | ButtonPressMask);
+	XMapRaised(r.d, r.w);
 
 	/* If embed, listen for other events as well */
 	if (embed) {
 		Window		*children, parent, root;
 		unsigned int	children_no;
 
-		XSelectInput(d, parent_window, FocusChangeMask);
-		if (XQueryTree(d, parent_window, &root, &parent, &children, &children_no) && children) {
-			for (i = 0; i < children_no && children[i] != w; ++i)
-				XSelectInput(d, children[i], FocusChangeMask);
+		XSelectInput(r.d, parent_window, FocusChangeMask);
+		if (XQueryTree(r.d, parent_window, &root, &parent, &children, &children_no) && children) {
+			for (i = 0; i < children_no && children[i] != r.w; ++i)
+				XSelectInput(r.d, children[i], FocusChangeMask);
 			XFree(children);
 		}
-		grabfocus(d, w);
+		grabfocus(r.d, r.w);
 	}
 
-	take_keyboard(d, w);
+	take_keyboard(r.d, r.w);
 
-	struct rendering r = {
-		.d                          = d,
-		.w                          = w,
-		.width                      = width,
-		.height                     = height,
-		.padding                    = padding,
-		.x_zero                     = border_w,
-		.y_zero                     = border_n,
-		.offset                     = 0,
-		.free_text                  = free_text,
-		.first_selected             = first_selected,
-		.multiple_select            = multiple_select,
-		.border_n                   = border_n,
-		.border_e                   = border_e,
-		.border_s                   = border_s,
-		.border_w                   = border_w,
-		.horizontal_layout          = horizontal_layout,
-		.ps1                        = ps1,
-		.ps1len                     = strlen(ps1),
-		.prompt                     = XCreateGC(d, w, 0, &values),
-		.prompt_bg                  = XCreateGC(d, w, 0, &values),
-		.completion                 = XCreateGC(d, w, 0, &values),
-		.completion_bg              = XCreateGC(d, w, 0, &values),
-		.completion_highlighted     = XCreateGC(d, w, 0, &values),
-		.completion_highlighted_bg  = XCreateGC(d, w, 0, &values),
-		.border_n_bg                = XCreateGC(d, w, 0, &values),
-		.border_e_bg                = XCreateGC(d, w, 0, &values),
-		.border_s_bg                = XCreateGC(d, w, 0, &values),
-		.border_w_bg                = XCreateGC(d, w, 0, &values),
-	};
+	r.x_zero = r.border_w;
+	r.y_zero = r.border_n;
+
+	{
+		XGCValues	values;
+
+		r.prompt                     = XCreateGC(r.d, r.w, 0, &values),
+		r.prompt_bg                  = XCreateGC(r.d, r.w, 0, &values);
+		r.completion                 = XCreateGC(r.d, r.w, 0, &values);
+		r.completion_bg              = XCreateGC(r.d, r.w, 0, &values);
+		r.completion_highlighted     = XCreateGC(r.d, r.w, 0, &values);
+		r.completion_highlighted_bg  = XCreateGC(r.d, r.w, 0, &values);
+		r.border_n_bg                = XCreateGC(r.d, r.w, 0, &values);
+		r.border_e_bg                = XCreateGC(r.d, r.w, 0, &values);
+		r.border_s_bg                = XCreateGC(r.d, r.w, 0, &values);
+		r.border_w_bg                = XCreateGC(r.d, r.w, 0, &values);
+	}
 
 	if (load_font(&r, fontname) == -1)
 		status = ERR;
 
 #ifdef USE_XFT
-	r.xftdraw = XftDrawCreate(d, w, vinfo.visual, DefaultColormap(d, 0));
+	r.xftdraw = XftDrawCreate(r.d, r.w, vinfo.visual, DefaultColormap(r.d, 0));
 
 	{
 		rgba_t c;
@@ -1772,66 +1786,43 @@ main(int argc, char **argv)
 
 		/* Prompt */
 		c = *(rgba_t*)&p_fg;
-		xrcolor.red          = EXPANDBITS(c.r);
-		xrcolor.green        = EXPANDBITS(c.g);
-		xrcolor.blue         = EXPANDBITS(c.b);
-		xrcolor.alpha        = EXPANDBITS(c.a);
-		XftColorAllocValue(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &xrcolor, &r.xft_prompt);
+		xrcolor.red          = EXPANDBITS(c.rgba.r);
+		xrcolor.green        = EXPANDBITS(c.rgba.g);
+		xrcolor.blue         = EXPANDBITS(c.rgba.b);
+		xrcolor.alpha        = EXPANDBITS(c.rgba.a);
+		XftColorAllocValue(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &xrcolor, &r.xft_prompt);
 
 		/* Completion */
 		c = *(rgba_t*)&compl_fg;
-		xrcolor.red          = EXPANDBITS(c.r);
-		xrcolor.green        = EXPANDBITS(c.g);
-		xrcolor.blue         = EXPANDBITS(c.b);
-		xrcolor.alpha        = EXPANDBITS(c.a);
-		XftColorAllocValue(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &xrcolor, &r.xft_completion);
+		xrcolor.red          = EXPANDBITS(c.rgba.r);
+		xrcolor.green        = EXPANDBITS(c.rgba.g);
+		xrcolor.blue         = EXPANDBITS(c.rgba.b);
+		xrcolor.alpha        = EXPANDBITS(c.rgba.a);
+		XftColorAllocValue(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &xrcolor, &r.xft_completion);
 
 		/* Completion highlighted */
 		c = *(rgba_t*)&compl_highlighted_fg;
-		xrcolor.red          = EXPANDBITS(c.r);
-		xrcolor.green        = EXPANDBITS(c.g);
-		xrcolor.blue         = EXPANDBITS(c.b);
-		xrcolor.alpha        = EXPANDBITS(c.a);
-		XftColorAllocValue(d, DefaultVisual(d, 0), DefaultColormap(d, 0), &xrcolor, &r.xft_completion_highlighted);
+		xrcolor.red          = EXPANDBITS(c.rgba.r);
+		xrcolor.green        = EXPANDBITS(c.rgba.g);
+		xrcolor.blue         = EXPANDBITS(c.rgba.b);
+		xrcolor.alpha        = EXPANDBITS(c.rgba.a);
+		XftColorAllocValue(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &xrcolor, &r.xft_completion_highlighted);
 	}
 #endif
 
 	/* Load the colors in our GCs */
-	XSetForeground(d, r.prompt, p_fg);
-	XSetForeground(d, r.prompt_bg, p_bg);
-	XSetForeground(d, r.completion, compl_fg);
-	XSetForeground(d, r.completion_bg, compl_bg);
-	XSetForeground(d, r.completion_highlighted, compl_highlighted_fg);
-	XSetForeground(d, r.completion_highlighted_bg, compl_highlighted_bg);
-	XSetForeground(d, r.border_n_bg, border_n_bg);
-	XSetForeground(d, r.border_e_bg, border_e_bg);
-	XSetForeground(d, r.border_s_bg, border_s_bg);
-	XSetForeground(d, r.border_w_bg, border_w_bg);
+	XSetForeground(r.d, r.prompt, p_fg);
+	XSetForeground(r.d, r.prompt_bg, p_bg);
+	XSetForeground(r.d, r.completion, compl_fg);
+	XSetForeground(r.d, r.completion_bg, compl_bg);
+	XSetForeground(r.d, r.completion_highlighted, compl_highlighted_fg);
+	XSetForeground(r.d, r.completion_highlighted_bg, compl_highlighted_bg);
+	XSetForeground(r.d, r.border_n_bg, border_n_bg);
+	XSetForeground(r.d, r.border_e_bg, border_e_bg);
+	XSetForeground(r.d, r.border_s_bg, border_s_bg);
+	XSetForeground(r.d, r.border_w_bg, border_w_bg);
 
-	/* Open the X input method */
-	xim = XOpenIM(d, xdb, resname, resclass);
-	check_allocation(xim);
-
-	if (XGetIMValues(xim, XNQueryInputStyle, &xis, NULL) || !xis) {
-		fprintf(stderr, "Input Styles could not be retrieved\n");
-		return EX_UNAVAILABLE;
-	}
-
-	best_match_style = 0;
-	for (i = 0; i < xis->count_styles; ++i) {
-		XIMStyle ts = xis->supported_styles[i];
-		if (ts == (XIMPreeditNothing | XIMStatusNothing)) {
-			best_match_style = ts;
-			break;
-		}
-	}
-	XFree(xis);
-
-	if (!best_match_style)
-		fprintf(stderr, "No matching input style could be determined\n");
-
-	r.xic = XCreateIC(xim, XNInputStyle, best_match_style, XNClientWindow, w, XNFocusWindow, w, NULL);
-	check_allocation(r.xic);
+	xim_init(&r, &xdb);
 
 	/* Draw the window for the first time */
 	draw(&r, text, cs);
@@ -1843,11 +1834,11 @@ main(int argc, char **argv)
 		if (status != ERR)
 			printf("%s\n", text);
 
-		if (!multiple_select && status == OK_LOOP)
+		if (!r.multiple_select && status == OK_LOOP)
 			status = OK;
 	}
 
-	XUngrabKeyboard(d, CurrentTime);
+	XUngrabKeyboard(r.d, CurrentTime);
 
 #ifdef USE_XFT
 	XftColorFree(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &r.xft_prompt);
@@ -1855,7 +1846,7 @@ main(int argc, char **argv)
 	XftColorFree(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &r.xft_completion_highlighted);
 #endif
 
-	free(ps1);
+	free(r.ps1);
 	free(fontname);
 	free(text);
 
