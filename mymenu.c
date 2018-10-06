@@ -122,6 +122,8 @@ struct rendering {
 	/* prompt */
 	char		*ps1;
 	int		ps1len;
+	int		ps1w;	/* ps1 width */
+	int		ps1h;	/* ps1 height */
 
 	XIC		xic;
 
@@ -575,22 +577,16 @@ void
 draw_horizontally(struct rendering *r, char *text, struct completions *cs)
 {
 	size_t	i;
-	int	prompt_width, ps1xlen, start_at;
-	int	width, height;
+	int	prompt_width, start_at;
 	int	texty, textlen;
-	char	*ps1dup;
 
 	prompt_width = 20; 	/* TODO: calculate the correct amount of char to show */
-
-	ps1dup = strdupn(r->ps1);
-	ps1xlen = text_extents(ps1dup != NULL ? ps1dup : r->ps1, r->ps1len, r, &width, &height);
-	free(ps1dup);
 
 	start_at  = r->x_zero + text_extents("n", 1, r, NULL, NULL);
 	start_at *= prompt_width;
 	start_at += r->padding;
 
-	texty = (inner_height(r) + height + r->y_zero) / 2;
+	texty = (inner_height(r) + r->ps1h + r->y_zero) / 2;
 
 	XFillRectangle(r->d, r->w, r->prompt_bg, r->x_zero, r->y_zero, start_at, inner_height(r));
 
@@ -599,7 +595,7 @@ draw_horizontally(struct rendering *r, char *text, struct completions *cs)
 		text = text + textlen - prompt_width;
 
 	draw_string(r->ps1, r->ps1len, r->x_zero + r->padding, texty, r, PROMPT);
-	draw_string(text, MIN(textlen, prompt_width), r->x_zero + r->padding + ps1xlen, texty, r, PROMPT);
+	draw_string(text, MIN(textlen, prompt_width), r->x_zero + r->padding + r->ps1w, texty, r, PROMPT);
 
 	XFillRectangle(r->d, r->w, r->completion_bg, start_at, r->y_zero, r->width, inner_height(r));
 
@@ -637,8 +633,6 @@ draw_vertically(struct rendering *r, char *text, struct completions *cs)
 {
 	size_t	i;
 	int	height, start_at;
-	int	ps1xlen;
-	char	*ps1dup;
 
 	text_extents("fjpgl", 5, r, NULL, &height);
 	start_at = r->padding * 2 + height;
@@ -646,12 +640,8 @@ draw_vertically(struct rendering *r, char *text, struct completions *cs)
 	XFillRectangle(r->d, r->w, r->completion_bg, r->x_zero, r->y_zero, r->width, r->height);
 	XFillRectangle(r->d, r->w, r->prompt_bg, r->x_zero, r->y_zero, r->width, start_at);
 
-	ps1dup = strdupn(r->ps1);
-	ps1xlen = text_extents(ps1dup == NULL ? ps1dup : r->ps1, r->ps1len, r, NULL, NULL);
-	free(ps1dup);
-
 	draw_string(r->ps1, r->ps1len, r->x_zero + r->padding, r->y_zero + height + r->padding, r, PROMPT);
-	draw_string(text, strlen(text), r->x_zero + r->padding + ps1xlen, r->y_zero + height + r->padding, r, PROMPT);
+	draw_string(text, strlen(text), r->x_zero + r->padding + r->ps1w, r->y_zero + height + r->padding, r, PROMPT);
 
 	start_at += r->y_zero;
 
@@ -1318,6 +1308,15 @@ create_window(struct rendering *r, Window parent_window, Colormap cmap, XVisualI
 }
 
 void
+ps1extents(struct rendering *r)
+{
+	char *dup;
+	dup = strdupn(r->ps1);
+	text_extents(dup == NULL ? r->ps1 : dup, r->ps1len, r, &r->ps1w, &r->ps1h);
+	free(dup);
+}
+
+void
 usage(char *prgname)
 {
 	fprintf(stderr, "%s [-Aamvh] [-B colors] [-b borders] [-C color] [-c color]\n"
@@ -1822,10 +1821,18 @@ main(int argc, char **argv)
 	XSetForeground(r.d, r.border_s_bg, border_s_bg);
 	XSetForeground(r.d, r.border_w_bg, border_w_bg);
 
+	/* compute prompt dimensions */
+	ps1extents(&r);
+
 	xim_init(&r, &xdb);
 
 	/* Draw the window for the first time */
 	draw(&r, text, cs);
+
+#ifdef __OpenBSD__
+	/* Now we need only the ability to write */
+	pledge("stdio", "");
+#endif
 
 	/* Main loop */
 	while (status == LOOPING || status == OK_LOOP) {
