@@ -16,9 +16,6 @@
 #include <X11/Xcms.h>
 #include <X11/keysym.h>
 
-#define USE_XFT
-#define USE_XINERAMA
-
 #ifdef USE_XINERAMA
 # include <X11/extensions/Xinerama.h>
 #endif
