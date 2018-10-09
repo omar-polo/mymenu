@@ -172,6 +172,9 @@ typedef union {
 	uint32_t	v;
 } rgba_t;
 
+extern char	*optarg;
+extern int	optind;
+
 /* Return a newly allocated (and empty) completion list */
 struct completions *
 compls_new(size_t length)
