@@ -44,7 +44,7 @@
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-#define EXPANDBITS(x)   ((0xffff * x) / 0xff)
+#define EXPANDBITS(x) (((x & 0xf0) * 0x100) | (x & 0x0f) * 0x10)
 
 /*
  * If we don't have or we don't want an "ignore case" completion
@@ -1829,13 +1829,13 @@ main(int argc, char **argv)
 
 	xim_init(&r, &xdb);
 
-	/* Draw the window for the first time */
-	draw(&r, text, cs);
-
 #ifdef __OpenBSD__
 	/* Now we need only the ability to write */
 	pledge("stdio", "");
 #endif
+
+	/* Draw the window for the first time */
+	draw(&r, text, cs);
 
 	/* Main loop */
 	while (status == LOOPING || status == OK_LOOP) {
