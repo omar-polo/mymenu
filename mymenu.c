@@ -16,6 +16,9 @@
 #include <X11/Xcms.h>
 #include <X11/keysym.h>
 
+#define USE_XFT
+#define USE_XINERAMA
+
 #ifdef USE_XINERAMA
 # include <X11/extensions/Xinerama.h>
 #endif
@@ -68,8 +71,8 @@
     }							\
   }
 
-#define inner_height(r) (r->height - r->border_n - r->border_s)
-#define inner_width(r)  (r->width  - r->border_e - r->border_w)
+#define inner_height(r) (r->height - r->borders[0] - r->borders[2])
+#define inner_width(r)  (r->width  - r->borders[1] - r->borders[3])
 
 /* The states of the event loop */
 enum state {LOOPING, OK_LOOP, OK, ERR};
@@ -112,10 +115,7 @@ struct rendering {
 	short		multiple_select;
 
 	/* four border width */
-	int		border_n;
-	int		border_e;
-	int		border_s;
-	int		border_w;
+	int		borders[4];
 
 	short		horizontal_layout;
 
@@ -128,22 +128,13 @@ struct rendering {
 	XIC		xic;
 
 	/* colors */
-	GC		prompt;
-	GC		prompt_bg;
-	GC		completion;
-	GC		completion_bg;
-	GC		completion_highlighted;
-	GC		completion_highlighted_bg;
-	GC		border_n_bg;
-	GC		border_e_bg;
-	GC		border_s_bg;
-	GC		border_w_bg;
+	GC		fgs[4];
+	GC		bgs[4];
+	GC		borders_bg[4];
 #ifdef USE_XFT
 	XftFont		*font;
 	XftDraw		*xftdraw;
-	XftColor	xft_prompt;
-	XftColor	xft_completion;
-	XftColor	xft_completion_highlighted;
+	XftColor	xft_colors[3];
 #else
 	XFontSet	font;
 #endif
@@ -537,9 +528,9 @@ draw_string(char *str, int len, int x, int y, struct rendering *r, enum text_typ
 {
 #ifdef USE_XFT
 	XftColor xftcolor;
-	if (tt == PROMPT)     xftcolor = r->xft_prompt;
-	if (tt == COMPL)      xftcolor = r->xft_completion;
-	if (tt == COMPL_HIGH) xftcolor = r->xft_completion_highlighted;
+	if (tt == PROMPT)     xftcolor = r->xft_colors[0];
+	if (tt == COMPL)      xftcolor = r->xft_colors[1];
+	if (tt == COMPL_HIGH) xftcolor = r->xft_colors[2];
 
 	XftDrawStringUtf8(r->xftdraw, &xftcolor, r->font, x, y, str, len);
 #else
@@ -591,7 +582,7 @@ draw_horizontally(struct rendering *r, char *text, struct completions *cs)
 
 	texty = (inner_height(r) + r->ps1h + r->y_zero) / 2;
 
-	XFillRectangle(r->d, r->w, r->prompt_bg, r->x_zero, r->y_zero, start_at, inner_height(r));
+	XFillRectangle(r->d, r->w, r->bgs[0], r->x_zero, r->y_zero, start_at, inner_height(r));
 
 	textlen = strlen(text);
 	if (textlen > prompt_width)
@@ -600,7 +591,7 @@ draw_horizontally(struct rendering *r, char *text, struct completions *cs)
 	draw_string(r->ps1, r->ps1len, r->x_zero + r->padding, texty, r, PROMPT);
 	draw_string(text, MIN(textlen, prompt_width), r->x_zero + r->padding + r->ps1w, texty, r, PROMPT);
 
-	XFillRectangle(r->d, r->w, r->completion_bg, start_at, r->y_zero, r->width, inner_height(r));
+	XFillRectangle(r->d, r->w, r->bgs[1], start_at, r->y_zero, r->width, inner_height(r));
 
 	for (i = r->offset; i < cs->length; ++i) {
 		struct completion	*c;
@@ -610,7 +601,7 @@ draw_horizontally(struct rendering *r, char *text, struct completions *cs)
 
 		c = &cs->completions[i];
 		tt = cs->selected == (ssize_t)i ? COMPL_HIGH : COMPL;
-		h  = cs->selected == (ssize_t)i ? r->completion_highlighted_bg : r->completion_bg;
+		h  = cs->selected == (ssize_t)i ? r->bgs[2] : r->bgs[1];
 		len = strlen(c->completion);
 		text_width = text_extents(c->completion, len, r, NULL, NULL);
 
@@ -640,8 +631,8 @@ draw_vertically(struct rendering *r, char *text, struct completions *cs)
 	text_extents("fjpgl", 5, r, NULL, &height);
 	start_at = r->padding * 2 + height;
 
-	XFillRectangle(r->d, r->w, r->completion_bg, r->x_zero, r->y_zero, r->width, r->height);
-	XFillRectangle(r->d, r->w, r->prompt_bg, r->x_zero, r->y_zero, r->width, start_at);
+	XFillRectangle(r->d, r->w, r->bgs[1], r->x_zero, r->y_zero, r->width, r->height);
+	XFillRectangle(r->d, r->w, r->bgs[0], r->x_zero, r->y_zero, r->width, start_at);
 
 	draw_string(r->ps1, r->ps1len, r->x_zero + r->padding, r->y_zero + height + r->padding, r, PROMPT);
 	draw_string(text, strlen(text), r->x_zero + r->padding + r->ps1w, r->y_zero + height + r->padding, r, PROMPT);
@@ -656,7 +647,7 @@ draw_vertically(struct rendering *r, char *text, struct completions *cs)
 
 		c   = &cs->completions[i];
 		tt  = cs->selected == (ssize_t)i ? COMPL_HIGH : COMPL;
-		h   = cs->selected == (ssize_t)i ? r->completion_highlighted_bg : r->completion_bg;
+		h   = cs->selected == (ssize_t)i ? r->bgs[2] : r->bgs[1];
 		len = strlen(c->completion);
 
 		XFillRectangle(r->d, r->w, h, r->x_zero, start_at, inner_width(r), height + r->padding*2);
@@ -678,17 +669,17 @@ draw(struct rendering *r, char *text, struct completions *cs)
 		draw_vertically(r, text, cs);
 
 	/* Draw the borders */
-	if (r->border_w != 0)
-		XFillRectangle(r->d, r->w, r->border_w_bg, 0, 0, r->border_w, r->height);
+	if (r->borders[0] != 0)
+		XFillRectangle(r->d, r->w, r->borders_bg[0], 0, 0, r->width, r->borders[0]);
 
-	if (r->border_e != 0)
-		XFillRectangle(r->d, r->w, r->border_e_bg, r->width - r->border_e, 0, r->border_e, r->height);
+	if (r->borders[1] != 0)
+		XFillRectangle(r->d, r->w, r->borders_bg[1], r->width - r->borders[1], 0, r->borders[1], r->height);
 
-	if (r->border_n != 0)
-		XFillRectangle(r->d, r->w, r->border_n_bg, 0, 0, r->width, r->border_n);
+	if (r->borders[2] != 0)
+		XFillRectangle(r->d, r->w, r->borders_bg[2], 0, r->height - r->borders[2], r->width, r->borders[2]);
 
-	if (r->border_s != 0)
-		XFillRectangle(r->d, r->w, r->border_s_bg, 0, r->height - r->border_s, r->width, r->border_s);
+	if (r->borders[3] != 0)
+		XFillRectangle(r->d, r->w, r->borders_bg[3], 0, 0, r->borders[3], r->height);
 
 	/* render! */
 	XFlush(r->d);
@@ -1338,9 +1329,8 @@ main(int argc, char **argv)
 	size_t			nlines, i;
 	Window			parent_window;
 	XrmDatabase		xdb;
-	unsigned long		p_fg, compl_fg, compl_highlighted_fg;
-	unsigned long		p_bg, compl_bg, compl_highlighted_bg;
-	unsigned long		border_n_bg, border_e_bg, border_s_bg, border_w_bg;
+	unsigned long		fgs[3], bgs[3]; /* prompt, compl, compl_highlighted */
+	unsigned long		borders_bg[4];	/* N E S W */
 	enum state		status;
 	int			ch;
 	int			offset_x, offset_y, x, y;
@@ -1376,18 +1366,15 @@ main(int argc, char **argv)
 			parent_window_id = strdup(optarg);
 			check_allocation(parent_window_id);
 			break;
-		case 'd': {
+		case 'd':
 			sep = strdup(optarg);
 			check_allocation(sep);
-		}
-		case 'A': {
+		case 'A':
 			r.free_text = 0;
 			break;
-		}
-		case 'm': {
+		case 'm':
 			r.multiple_select = 1;
 			break;
-		}
 		default:
 			break;
 		}
@@ -1433,7 +1420,7 @@ main(int argc, char **argv)
 	r.padding = 10;
 
 	/* default borders */
-	r.border_n = r.border_e = r.border_s = r.border_w = 0;
+	r.borders[0] = r.borders[1] = r.borders[2] = r.borders[3] = 0;
 
 	/* the prompt. We duplicate the string so later is easy to
 	 * free (in the case it's been overwritten by the user) */
@@ -1513,13 +1500,13 @@ main(int argc, char **argv)
 	XMatchVisualInfo(r.d, DefaultScreen(r.d), 32, TrueColor, &vinfo);
 	cmap = XCreateColormap(r.d, XDefaultRootWindow(r.d), vinfo.visual, AllocNone);
 
-	p_fg = compl_fg = parse_color("#fff", NULL);
-	compl_highlighted_fg = parse_color("#000", NULL);
+	fgs[0] = fgs[1] = parse_color("#fff", NULL);
+	fgs[2] = parse_color("#000", NULL);
 
-	p_bg = compl_bg = parse_color("#000", NULL);
-	compl_highlighted_bg = parse_color("#fff", NULL);
+	bgs[0] = bgs[1] = parse_color("#000", NULL);
+	bgs[2] = parse_color("#fff", NULL);
 
-	border_n_bg = border_e_bg = border_s_bg = border_w_bg = parse_color("#000", NULL);
+	borders_bg[0] = borders_bg[1] = borders_bg[2] = borders_bg[3] = parse_color("#000", NULL);
 
 	r.horizontal_layout = 1;
 
@@ -1583,10 +1570,10 @@ main(int argc, char **argv)
 
 			borders = parse_csslike(value.addr);
 			if (borders != NULL) {
-				r.border_n = parse_integer(borders[0], 0);
-				r.border_e = parse_integer(borders[1], 0);
-				r.border_s = parse_integer(borders[2], 0);
-				r.border_w = parse_integer(borders[3], 0);
+				r.borders[0] = parse_integer(borders[0], 0);
+				r.borders[1] = parse_integer(borders[1], 0);
+				r.borders[2] = parse_integer(borders[2], 0);
+				r.borders[3] = parse_integer(borders[3], 0);
 			} else
 				fprintf(stderr, "error while parsing MyMenu.border.size\n");
 		} else
@@ -1594,38 +1581,34 @@ main(int argc, char **argv)
 
 		/* Prompt */
 		if (XrmGetResource(xdb, "MyMenu.prompt.foreground", "*", datatype, &value) == 1)
-			p_fg = parse_color(value.addr, "#fff");
+			fgs[0] = parse_color(value.addr, "#fff");
 
 		if (XrmGetResource(xdb, "MyMenu.prompt.background", "*", datatype, &value) == 1)
-			p_bg = parse_color(value.addr, "#000");
+			bgs[0] = parse_color(value.addr, "#000");
 
 		/* Completions */
 		if (XrmGetResource(xdb, "MyMenu.completion.foreground", "*", datatype, &value) == 1)
-			compl_fg = parse_color(value.addr, "#fff");
+			fgs[1] = parse_color(value.addr, "#fff");
 
 		if (XrmGetResource(xdb, "MyMenu.completion.background", "*", datatype, &value) == 1)
-			compl_bg = parse_color(value.addr, "#000");
-		else
-			compl_bg = parse_color("#000", NULL);
+			bgs[1] = parse_color(value.addr, "#000");
 
 		/* Completion Highlighted */
 		if (XrmGetResource(xdb, "MyMenu.completion_highlighted.foreground", "*", datatype, &value) == 1)
-			compl_highlighted_fg = parse_color(value.addr, "#000");
+			fgs[2] = parse_color(value.addr, "#000");
 
 		if (XrmGetResource(xdb, "MyMenu.completion_highlighted.background", "*", datatype, &value) == 1)
-			compl_highlighted_bg = parse_color(value.addr, "#fff");
-		else
-			compl_highlighted_bg = parse_color("#fff", NULL);
+			bgs[2] = parse_color(value.addr, "#fff");
 
 		/* Border */
 		if (XrmGetResource(xdb, "MyMenu.border.color", "*", datatype, &value) == 1) {
 			char **colors;
 			colors = parse_csslike(value.addr);
 			if (colors != NULL) {
-				border_n_bg = parse_color(colors[0], "#000");
-				border_e_bg = parse_color(colors[1], "#000");
-				border_s_bg = parse_color(colors[2], "#000");
-				border_w_bg = parse_color(colors[3], "#000");
+				borders_bg[0] = parse_color(colors[0], "#000");
+				borders_bg[1] = parse_color(colors[1], "#000");
+				borders_bg[2] = parse_color(colors[2], "#000");
+				borders_bg[3] = parse_color(colors[3], "#000");
 			} else
 				fprintf(stderr, "error while parsing MyMenu.border.color\n");
 		}
@@ -1685,10 +1668,10 @@ main(int argc, char **argv)
 		case 'b': {
 			char **borders;
 			if ((borders = parse_csslike(optarg)) != NULL) {
-				r.border_n = parse_integer(borders[0], 0);
-				r.border_e = parse_integer(borders[1], 0);
-				r.border_s = parse_integer(borders[2], 0);
-				r.border_w = parse_integer(borders[3], 0);
+				r.borders[0] = parse_integer(borders[0], 0);
+				r.borders[1] = parse_integer(borders[1], 0);
+				r.borders[2] = parse_integer(borders[2], 0);
+				r.borders[3] = parse_integer(borders[3], 0);
 			} else
 				fprintf(stderr, "Error parsing b option\n");
 			break;
@@ -1696,31 +1679,31 @@ main(int argc, char **argv)
 		case 'B': {
 			char **colors;
 			if ((colors = parse_csslike(optarg)) != NULL) {
-				border_n_bg = parse_color(colors[0], "#000");
-				border_e_bg = parse_color(colors[1], "#000");
-				border_s_bg = parse_color(colors[2], "#000");
-				border_w_bg = parse_color(colors[3], "#000");
+				borders_bg[0] = parse_color(colors[0], "#000");
+				borders_bg[1] = parse_color(colors[1], "#000");
+				borders_bg[2] = parse_color(colors[2], "#000");
+				borders_bg[3] = parse_color(colors[3], "#000");
 			} else
 				fprintf(stderr, "error while parsing B option\n");
 			break;
 		}
 		case 't':
-			p_fg = parse_color(optarg, NULL);
+			fgs[0] = parse_color(optarg, NULL);
 			break;
 		case 'T':
-			p_bg = parse_color(optarg, NULL);
+			bgs[0] = parse_color(optarg, NULL);
 			break;
 		case 'c':
-			compl_fg = parse_color(optarg, NULL);
+			fgs[1] = parse_color(optarg, NULL);
 			break;
 		case 'C':
-			compl_bg = parse_color(optarg, NULL);
+			bgs[1] = parse_color(optarg, NULL);
 			break;
 		case 's':
-			compl_highlighted_fg = parse_color(optarg, NULL);
+			fgs[2] = parse_color(optarg, NULL);
 			break;
 		case 'S':
-			compl_highlighted_bg = parse_color(optarg, NULL);
+			fgs[2] = parse_color(optarg, NULL);
 			break;
 		default:
 			fprintf(stderr, "Unrecognized option %c\n", ch);
@@ -1758,22 +1741,22 @@ main(int argc, char **argv)
 
 	take_keyboard(r.d, r.w);
 
-	r.x_zero = r.border_w;
-	r.y_zero = r.border_n;
+	r.x_zero = r.borders[3];
+	r.y_zero = r.borders[0];
 
 	{
 		XGCValues	values;
 
-		r.prompt                     = XCreateGC(r.d, r.w, 0, &values),
-		r.prompt_bg                  = XCreateGC(r.d, r.w, 0, &values);
-		r.completion                 = XCreateGC(r.d, r.w, 0, &values);
-		r.completion_bg              = XCreateGC(r.d, r.w, 0, &values);
-		r.completion_highlighted     = XCreateGC(r.d, r.w, 0, &values);
-		r.completion_highlighted_bg  = XCreateGC(r.d, r.w, 0, &values);
-		r.border_n_bg                = XCreateGC(r.d, r.w, 0, &values);
-		r.border_e_bg                = XCreateGC(r.d, r.w, 0, &values);
-		r.border_s_bg                = XCreateGC(r.d, r.w, 0, &values);
-		r.border_w_bg                = XCreateGC(r.d, r.w, 0, &values);
+		r.fgs[0]                     = XCreateGC(r.d, r.w, 0, &values),
+		r.fgs[1]                     = XCreateGC(r.d, r.w, 0, &values),
+		r.fgs[2]                     = XCreateGC(r.d, r.w, 0, &values),
+		r.bgs[0]                     = XCreateGC(r.d, r.w, 0, &values),
+		r.bgs[1]                     = XCreateGC(r.d, r.w, 0, &values),
+		r.bgs[2]                     = XCreateGC(r.d, r.w, 0, &values),
+		r.borders_bg[0]              = XCreateGC(r.d, r.w, 0, &values);
+		r.borders_bg[1]              = XCreateGC(r.d, r.w, 0, &values);
+		r.borders_bg[2]              = XCreateGC(r.d, r.w, 0, &values);
+		r.borders_bg[3]              = XCreateGC(r.d, r.w, 0, &values);
 	}
 
 	if (load_font(&r, fontname) == -1)
@@ -1787,42 +1770,42 @@ main(int argc, char **argv)
 		XRenderColor xrcolor;
 
 		/* Prompt */
-		c = *(rgba_t*)&p_fg;
+		c = *(rgba_t*)&fgs[0];
 		xrcolor.red          = EXPANDBITS(c.rgba.r);
 		xrcolor.green        = EXPANDBITS(c.rgba.g);
 		xrcolor.blue         = EXPANDBITS(c.rgba.b);
 		xrcolor.alpha        = EXPANDBITS(c.rgba.a);
-		XftColorAllocValue(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &xrcolor, &r.xft_prompt);
+		XftColorAllocValue(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &xrcolor, &r.xft_colors[0]);
 
 		/* Completion */
-		c = *(rgba_t*)&compl_fg;
+		c = *(rgba_t*)&fgs[1];
 		xrcolor.red          = EXPANDBITS(c.rgba.r);
 		xrcolor.green        = EXPANDBITS(c.rgba.g);
 		xrcolor.blue         = EXPANDBITS(c.rgba.b);
 		xrcolor.alpha        = EXPANDBITS(c.rgba.a);
-		XftColorAllocValue(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &xrcolor, &r.xft_completion);
+		XftColorAllocValue(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &xrcolor, &r.xft_colors[1]);
 
 		/* Completion highlighted */
-		c = *(rgba_t*)&compl_highlighted_fg;
+		c = *(rgba_t*)&fgs[2];
 		xrcolor.red          = EXPANDBITS(c.rgba.r);
 		xrcolor.green        = EXPANDBITS(c.rgba.g);
 		xrcolor.blue         = EXPANDBITS(c.rgba.b);
 		xrcolor.alpha        = EXPANDBITS(c.rgba.a);
-		XftColorAllocValue(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &xrcolor, &r.xft_completion_highlighted);
+		XftColorAllocValue(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &xrcolor, &r.xft_colors[2]);
 	}
 #endif
 
 	/* Load the colors in our GCs */
-	XSetForeground(r.d, r.prompt, p_fg);
-	XSetForeground(r.d, r.prompt_bg, p_bg);
-	XSetForeground(r.d, r.completion, compl_fg);
-	XSetForeground(r.d, r.completion_bg, compl_bg);
-	XSetForeground(r.d, r.completion_highlighted, compl_highlighted_fg);
-	XSetForeground(r.d, r.completion_highlighted_bg, compl_highlighted_bg);
-	XSetForeground(r.d, r.border_n_bg, border_n_bg);
-	XSetForeground(r.d, r.border_e_bg, border_e_bg);
-	XSetForeground(r.d, r.border_s_bg, border_s_bg);
-	XSetForeground(r.d, r.border_w_bg, border_w_bg);
+	XSetForeground(r.d, r.fgs[0], fgs[0]);
+	XSetForeground(r.d, r.bgs[0], bgs[0]);
+	XSetForeground(r.d, r.fgs[1], fgs[1]);
+	XSetForeground(r.d, r.bgs[1], bgs[1]);
+	XSetForeground(r.d, r.fgs[2], fgs[2]);
+	XSetForeground(r.d, r.bgs[2], bgs[2]);
+	XSetForeground(r.d, r.borders_bg[0], borders_bg[0]);
+	XSetForeground(r.d, r.borders_bg[1], borders_bg[1]);
+	XSetForeground(r.d, r.borders_bg[2], borders_bg[2]);
+	XSetForeground(r.d, r.borders_bg[3], borders_bg[3]);
 
 	/* compute prompt dimensions */
 	ps1extents(&r);
@@ -1851,9 +1834,9 @@ main(int argc, char **argv)
 	XUngrabKeyboard(r.d, CurrentTime);
 
 #ifdef USE_XFT
-	XftColorFree(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &r.xft_prompt);
-	XftColorFree(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &r.xft_completion);
-	XftColorFree(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &r.xft_completion_highlighted);
+	XftColorFree(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &r.xft_colors[0]);
+	XftColorFree(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &r.xft_colors[1]);
+	XftColorFree(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &r.xft_colors[2]);
 #endif
 
 	free(r.ps1);
