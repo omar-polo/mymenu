@@ -532,9 +532,9 @@ draw_string(char *str, int len, int x, int y, struct rendering *r, enum text_typ
 	XftDrawStringUtf8(r->xftdraw, &xftcolor, r->font, x, y, str, len);
 #else
 	GC gc;
-	if (tt == PROMPT)     gc = r->prompt;
-	if (tt == COMPL)      gc = r->completion;
-	if (tt == COMPL_HIGH) gc = r->completion_highlighted;
+	if (tt == PROMPT)     gc = r->fgs[0];
+	if (tt == COMPL)      gc = r->fgs[1];
+	if (tt == COMPL_HIGH) gc = r->fgs[2];
 	Xutf8DrawString(r->d, r->w, r->font, gc, x, y, str, len);
 #endif
 }
