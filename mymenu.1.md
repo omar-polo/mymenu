@@ -267,7 +267,7 @@ MyMenu.border.size
 > clockwise. Other values will be ignored. The default value is 0.
 
 > This particular option accepts a percentage (e.g. 10%) relative to the
-> window's width.
+> screen width.
 
 MyMenu.border.color
 

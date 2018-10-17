@@ -1702,7 +1702,7 @@ main(int argc, char **argv)
 			borders = parse_csslike(value.addr);
 			if (borders != NULL)
 				for (i = 0; i < 4; ++i)
-					r.borders[i] = parse_int_with_percentage(borders[i], 0, (i % 2) == 0 ? r.height : r.width);
+					r.borders[i] = parse_int_with_percentage(borders[i], 0, (i % 2) == 0 ? d_height : d_width);
 			else
 				fprintf(stderr, "error while parsing MyMenu.border.size\n");
 		}
