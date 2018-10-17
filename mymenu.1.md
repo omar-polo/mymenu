@@ -7,22 +7,28 @@ MYMENU(1) - General Commands Manual
 # SYNOPSIS
 
 **mymenu**
-\[**-Aamvh**]
+\[**-Aahmv**]
 \[**-B**&nbsp;*colors*]
-\[**-b**&nbsp;*borders*]
+\[**-b**&nbsp;*size*]
 \[**-C**&nbsp;*color*]
 \[**-c**&nbsp;*color*]
 \[**-d**&nbsp;*separator*]
 \[**-e**&nbsp;*window*]
 \[**-f**&nbsp;*font*]
+\[**-G**&nbsp;*color*]
+\[**-g**&nbsp;*size*]
 \[**-H**&nbsp;*height*]
+\[**-I**&nbsp;*color*]
+\[**-i**&nbsp;*size*]
+\[**-J**&nbsp;*color*]
+\[**-j**&nbsp;*size*]
 \[**-l**&nbsp;*layout*]
 \[**-P**&nbsp;*padding*]
 \[**-p**&nbsp;*prompt*]
-\[**-T**&nbsp;*color*]
-\[**-t**&nbsp;*color*]
 \[**-S**&nbsp;*color*]
 \[**-s**&nbsp;*color*]
+\[**-T**&nbsp;*color*]
+\[**-t**&nbsp;*color*]
 \[**-W**&nbsp;*width*]
 \[**-x**&nbsp;*coord*]
 \[**-y**&nbsp;*coord*]
@@ -70,14 +76,28 @@ over the (respective) ones defined in the
 
 **-d** *separator*
 
-> Define a string to be used as a separator. Only the text after the
-> separator will be rendered, but the original string will be
-> returned. Useful to embed custom data on every entry. See the mpd
-> example for hints on how this can be useful.
+> Define a string to be used as a separator (mnemonic: delimiter). Only
+> the text after the separator will be rendered, but the original string
+> will be returned. Useful to embed custom data on every entry. See the
+> mpd example for hints on how this can be useful.
 
 **-e** *windowid*
 
 > Embed into the given window id.
+
+**-f** *font*
+
+> Override the font. See MyMenu.font.
+
+**-G** *color*
+
+> Override the border colors of the prompt. See
+> MyMenu.prompt.border.color.
+
+**-g** *size*
+
+> Override the border size of the prompt. See
+> MyMenu.prompt.border.size.
 
 **-H** *val*
 
@@ -87,9 +107,25 @@ over the (respective) ones defined in the
 
 > Print a small usage message to stderr.
 
-**-f** *font*
+**-I** *color*
 
-> Override the font. See MyMenu.font.
+> Override the border colors of the completion. See
+> MyMenu.completion.border.color.
+
+**-i** *size*
+
+> Override the border size of the completion. See
+> MyMenu.completion.border.size.
+
+**-J** *color*
+
+> Override the border colors of the completion. See
+> MyMenu.completion\_highlighted.border.color.
+
+**-j** *size*
+
+> Override the border size of the completion. See
+> MyMenu.completion\_highlighted.border.size.
 
 **-l** *layout*
 
@@ -159,9 +195,25 @@ MyMenu.layout
 > implementation detail and not something to be relied on, since in the
 > future other layout could be added as well.
 
-Mymenu.prompt
+MyMenu.prompt
 
 > A string that is rendered before the user input. Default to "$ ".
+
+MyMenu.prompt.border.size
+
+> Parsed like MyMenu.border.size, but affects only the prompt. Default
+> to 0.
+
+MyMenu.prompt.border.color
+
+> Parsed like MyMenu.border.color, but affects only the prompt. Default
+> to #000 (black).
+
+MyMenu.prompt.padding
+
+> Parsed like MyMenu.border.size. The padding is the space between the
+> end of the borderd and the start of the text, in any direction (top,
+> bottom, left, right). Default to 10.
 
 MyMenu.width
 
@@ -204,12 +256,7 @@ MyMenu.y
 
 MyMenu.padding
 
-> Change the padding. In the horizontal layout the padding is the space
-> between the rectangle of the completion and the text as well as the
-> space between the prompt and the first completion. In the horizontal
-> layout the padding is the horizontal spacing between the window edge
-> and the text as well as the space up and down the text within the
-> completion. The default value is 10.
+> TODO: css-like! The default value is 10.
 
 MyMenu.border.size
 
@@ -222,6 +269,9 @@ MyMenu.border.size
 > the left and right border and the third for the bottom border. If four
 > value are given, they'll be applied to the respective border
 > clockwise. Other values will be ignored. The default value is 0.
+
+> This particular option accepts a percentage (e.g. 10%) relative to the
+> window's width.
 
 MyMenu.border.color
 
@@ -244,6 +294,20 @@ MyMenu.completion.foreground
 
 > The text color of the completions.
 
+MyMenu.completion.border.size
+
+> Parsed like MyMenu.border.size, but affects only the
+> completion. Default to 0.
+
+MyMenu.completion.border.color
+
+> Parsed like MyMenu.border.color, but affects only the
+> completion. Default to #000 (black).
+
+MyMenu.completion.padding
+
+> Parsed like MyMenu.prompt.padding. Default to 10.
+
 MyMenu.completion\_highlighted.background
 
 > The background of the selected completion.
@@ -251,6 +315,20 @@ MyMenu.completion\_highlighted.background
 MyMenu.completion\_highlighted.foreground
 
 > The foreground of the selected completion.
+
+MyMenu.completion\_highlighted.border.size
+
+> Parsed like MyMenu.border.size, but affects only the completion
+> highlighted. Default to 0.
+
+MyMenu.completion\_highlighted.border.color
+
+> Parsed like MyMenu.border.color, but affects only the completion
+> highlighted. Default to #000 (black).
+
+MyMenu.completion\_highlighted.padding
+
+> Parsed like MyMenu.prompt.padding. Default to 10.
 
 # COLORS
 
@@ -382,4 +460,4 @@ Omar Polo &lt;omar.polo@europecom.net&gt;
 	height of the window, remember to override the x and y coordinates as
 	well.
 
-OpenBSD 6.4 - September 19, 2018
+OpenBSD 6.4 - October 17, 2018

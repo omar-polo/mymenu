@@ -7,22 +7,28 @@
 .Sh SYNOPSIS
 .Nm
 .Bk -words
-.Op Fl Aamvh
+.Op Fl Aahmv
 .Op Fl B Ar colors
-.Op Fl b Ar borders
+.Op Fl b Ar size
 .Op Fl C Ar color
 .Op Fl c Ar color
 .Op Fl d Ar separator
 .Op Fl e Ar window
 .Op Fl f Ar font
+.Op Fl G Ar color
+.Op Fl g Ar size
 .Op Fl H Ar height
+.Op Fl I Ar color
+.Op Fl i Ar size
+.Op Fl J Ar color
+.Op Fl j Ar size
 .Op Fl l Ar layout
 .Op Fl P Ar padding
 .Op Fl p Ar prompt
-.Op Fl T Ar color
-.Op Fl t Ar color
 .Op Fl S Ar color
 .Op Fl s Ar color
+.Op Fl T Ar color
+.Op Fl t Ar color
 .Op Fl W Ar width
 .Op Fl x Ar coord
 .Op Fl y Ar coord
@@ -56,18 +62,36 @@ MyMenu.completion.background.
 Override the completion foreground color. See
 MyMenu.completion.foreground.
 .It Fl d Ar separator
-Define a string to be used as a separator. Only the text after the
-separator will be rendered, but the original string will be
-returned. Useful to embed custom data on every entry. See the mpd
-example for hints on how this can be useful.
+Define a string to be used as a separator (mnemonic: delimiter). Only
+the text after the separator will be rendered, but the original string
+will be returned. Useful to embed custom data on every entry. See the
+mpd example for hints on how this can be useful.
 .It Fl e Ar windowid
 Embed into the given window id.
+.It Fl f Ar font
+Override the font. See MyMenu.font.
+.It Fl G Ar color
+Override the border colors of the prompt. See
+MyMenu.prompt.border.color.
+.It Fl g Ar size
+Override the border size of the prompt. See
+MyMenu.prompt.border.size.
 .It Fl H Ar val
 Override the height. Parsed as MyMenu.height.
 .It Fl h
 Print a small usage message to stderr.
-.It Fl f Ar font
-Override the font. See MyMenu.font.
+.It Fl I Ar color
+Override the border colors of the completion. See
+MyMenu.completion.border.color.
+.It Fl i Ar size
+Override the border size of the completion. See
+MyMenu.completion.border.size.
+.It Fl J Ar color
+Override the border colors of the completion. See
+MyMenu.completion_highlighted.border.color.
+.It Fl j Ar size
+Override the border size of the completion. See
+MyMenu.completion_highlighted.border.size.
 .It Fl l Ar layout
 Override the layout. Parsed as MyMenu.layout.
 .It Fl m
@@ -109,8 +133,18 @@ The layout of the menu. The possible values are "horizontal" and
 than "horizontal" is treated like "vertical", but this is kinda an
 implementation detail and not something to be relied on, since in the
 future other layout could be added as well.
-.It Mymenu.prompt
+.It MyMenu.prompt
 A string that is rendered before the user input. Default to "$ ".
+.It MyMenu.prompt.border.size
+Parsed like MyMenu.border.size, but affects only the prompt. Default
+to 0.
+.It MyMenu.prompt.border.color
+Parsed like MyMenu.border.color, but affects only the prompt. Default
+to #000 (black).
+.It MyMenu.prompt.padding
+Parsed like MyMenu.border.size. The padding is the space between the
+end of the borderd and the start of the text, in any direction (top,
+bottom, left, right). Default to 10.
 .It MyMenu.width
 The width of the menu. If a numeric value is given (e.g. 400) is
 interpreted as pixel, if it ends with a percentage symbol `%'
@@ -139,12 +173,7 @@ The Y coordinate of the topmost left corner of the window. Like the X
 coordinate a pixel dimension, percentage dimension or the special
 value "start", "middle", "end" could be supplied.
 .It MyMenu.padding
-Change the padding. In the horizontal layout the padding is the space
-between the rectangle of the completion and the text as well as the
-space between the prompt and the first completion. In the horizontal
-layout the padding is the horizontal spacing between the window edge
-and the text as well as the space up and down the text within the
-completion. The default value is 10.
+TODO: css-like! The default value is 10.
 .It MyMenu.border.size
 A list of number separated by spaces to specify the border of the
 window. The field is parsed like some CSS properties (i.e. padding),
@@ -155,6 +184,9 @@ with three value the first is used for the top border, the second for
 the left and right border and the third for the bottom border. If four
 value are given, they'll be applied to the respective border
 clockwise. Other values will be ignored. The default value is 0.
+
+This particular option accepts a percentage (e.g. 10%) relative to the
+window's width.
 .It MyMenu.border.color
 A list of colors for the borders. This field is parsed like the
 MyMenu.border.size. The default value is black.
@@ -166,10 +198,26 @@ The text color (foreground) of the prompt.
 The background of the completions.
 .It MyMenu.completion.foreground
 The text color of the completions.
+.It MyMenu.completion.border.size
+Parsed like MyMenu.border.size, but affects only the
+completion. Default to 0.
+.It MyMenu.completion.border.color
+Parsed like MyMenu.border.color, but affects only the
+completion. Default to #000 (black).
+.It MyMenu.completion.padding
+Parsed like MyMenu.prompt.padding. Default to 10.
 .It MyMenu.completion_highlighted.background
 The background of the selected completion.
 .It MyMenu.completion_highlighted.foreground
 The foreground of the selected completion.
+.It MyMenu.completion_highlighted.border.size
+Parsed like MyMenu.border.size, but affects only the completion
+highlighted. Default to 0.
+.It MyMenu.completion_highlighted.border.color
+Parsed like MyMenu.border.color, but affects only the completion
+highlighted. Default to #000 (black).
+.It MyMenu.completion_highlighted.padding
+Parsed like MyMenu.prompt.padding. Default to 10.
 .El
 .Sh COLORS
 MyMenu accept colors only in the form of:
