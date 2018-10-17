@@ -139,7 +139,7 @@ over the (respective) ones defined in the
 
 **-P** *padding*
 
-> Override the padding. See the MyMenu.padding resource.
+> Override the padding. See the MyMenu.prompt.padding resource.
 
 **-p** *prompt*
 
@@ -253,10 +253,6 @@ MyMenu.y
 > The Y coordinate of the topmost left corner of the window. Like the X
 > coordinate a pixel dimension, percentage dimension or the special
 > value "start", "middle", "end" could be supplied.
-
-MyMenu.padding
-
-> TODO: css-like! The default value is 10.
 
 MyMenu.border.size
 
