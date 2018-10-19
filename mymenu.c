@@ -2055,9 +2055,8 @@ main(int argc, char **argv)
 	XUngrabKeyboard(r.d, CurrentTime);
 
 #ifdef USE_XFT
-	XftColorFree(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &r.xft_colors[0]);
-	XftColorFree(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &r.xft_colors[1]);
-	XftColorFree(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &r.xft_colors[2]);
+	for (i = 0; i < 3; ++i)
+		XftColorFree(r.d, vinfo.visual, cmap, &r.xft_colors[i]);
 #endif
 
 	free(r.ps1);
