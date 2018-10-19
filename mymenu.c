@@ -2012,33 +2012,16 @@ main(int argc, char **argv)
 #ifdef USE_XFT
 	r.xftdraw = XftDrawCreate(r.d, r.w, vinfo.visual, cmap);
 
-	{
-		rgba_t c;
-		XRenderColor xrcolor;
+	for (i = 0; i < 3; ++i) {
+		rgba_t		c;
+		XRenderColor	xrcolor;
 
-		/* Prompt */
-		c = *(rgba_t*)&fgs[0];
+		c = *(rgba_t*)&fgs[i];
 		xrcolor.red          = EXPANDBITS(c.rgba.r);
 		xrcolor.green        = EXPANDBITS(c.rgba.g);
 		xrcolor.blue         = EXPANDBITS(c.rgba.b);
 		xrcolor.alpha        = EXPANDBITS(c.rgba.a);
-		XftColorAllocValue(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &xrcolor, &r.xft_colors[0]);
-
-		/* Completion */
-		c = *(rgba_t*)&fgs[1];
-		xrcolor.red          = EXPANDBITS(c.rgba.r);
-		xrcolor.green        = EXPANDBITS(c.rgba.g);
-		xrcolor.blue         = EXPANDBITS(c.rgba.b);
-		xrcolor.alpha        = EXPANDBITS(c.rgba.a);
-		XftColorAllocValue(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &xrcolor, &r.xft_colors[1]);
-
-		/* Completion highlighted */
-		c = *(rgba_t*)&fgs[2];
-		xrcolor.red          = EXPANDBITS(c.rgba.r);
-		xrcolor.green        = EXPANDBITS(c.rgba.g);
-		xrcolor.blue         = EXPANDBITS(c.rgba.b);
-		xrcolor.alpha        = EXPANDBITS(c.rgba.a);
-		XftColorAllocValue(r.d, DefaultVisual(r.d, 0), DefaultColormap(r.d, 0), &xrcolor, &r.xft_colors[2]);
+		XftColorAllocValue(r.d, vinfo.visual, cmap, &xrcolor, &r.xft_colors[i]);
 	}
 #endif
 
