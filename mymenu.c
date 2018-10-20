@@ -1375,7 +1375,7 @@ xim_init(struct rendering *r, XrmDatabase *xdb)
 }
 
 void
-create_window(struct rendering *r, Window parent_window, Colormap cmap, XVisualInfo vinfo, int x, int y, int ox, int oy)
+create_window(struct rendering *r, Window parent_window, Colormap cmap, XVisualInfo vinfo, int x, int y, int ox, int oy, unsigned long background_pixel)
 {
 	XSetWindowAttributes	attr;
 
@@ -1383,7 +1383,7 @@ create_window(struct rendering *r, Window parent_window, Colormap cmap, XVisualI
 	attr.colormap = cmap;
 	attr.override_redirect = 1;
 	attr.border_pixel = 0;
-	attr.background_pixel = 0x80808080;
+	attr.background_pixel = background_pixel;
 	attr.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask | KeymapStateMask | ButtonPress | VisibilityChangeMask;
 
 	r->w = XCreateWindow(r->d,
@@ -1952,7 +1952,7 @@ main(int argc, char **argv)
 	r.ps1len = strlen(r.ps1);
 
 	/* Create the window */
-	create_window(&r, parent_window, cmap, vinfo, x, y, offset_x, offset_y);
+	create_window(&r, parent_window, cmap, vinfo, x, y, offset_x, offset_y, bgs[1]);
 	set_win_atoms_hints(r.d, r.w, r.width, r.height);
 	XMapRaised(r.d, r.w);
 
