@@ -99,6 +99,7 @@ big struct to rule them all */
 struct rendering {
 	Display		*d;	/* Connection to xorg */
 	Window		w;
+	XIM		xim;
 	int		width;
 	int		height;
 	int		p_padding[4];
@@ -512,8 +513,7 @@ readlines(char ***lns, char **buf)
 int
 text_extents(char *str, int len, struct rendering *r, int *ret_width, int *ret_height)
 {
-	int	height;
-	int	width;
+	int	height, width;
 #ifdef USE_XFT
 	XGlyphInfo	gi;
 	XftTextExtentsUtf8(r->d, r->font, str, len, &gi);
@@ -1344,16 +1344,15 @@ load_font(struct rendering *r, const char *fontname)
 void
 xim_init(struct rendering *r, XrmDatabase *xdb)
 {
-	XIM		xim;
 	XIMStyle	best_match_style;
 	XIMStyles	*xis;
 	int		i;
 
 	/* Open the X input method */
-	xim = XOpenIM(r->d, *xdb, resname, resclass);
-	check_allocation(xim);
+	r->xim = XOpenIM(r->d, *xdb, resname, resclass);
+	check_allocation(r->xim);
 
-	if (XGetIMValues(xim, XNQueryInputStyle, &xis, NULL) || !xis) {
+	if (XGetIMValues(r->xim, XNQueryInputStyle, &xis, NULL) || !xis) {
 		fprintf(stderr, "Input Styles could not be retrieved\n");
 		exit(EX_UNAVAILABLE);
 	}
@@ -1371,7 +1370,7 @@ xim_init(struct rendering *r, XrmDatabase *xdb)
 	if (!best_match_style)
 		fprintf(stderr, "No matching input style could be determined\n");
 
-	r->xic = XCreateIC(xim, XNInputStyle, best_match_style, XNClientWindow, r->w, XNFocusWindow, r->w, NULL);
+	r->xic = XCreateIC(r->xim, XNInputStyle, best_match_style, XNClientWindow, r->w, XNFocusWindow, r->w, NULL);
 	check_allocation(r->xic);
 }
 
@@ -1385,7 +1384,7 @@ create_window(struct rendering *r, Window parent_window, Colormap cmap, XVisualI
 	attr.override_redirect = 1;
 	attr.border_pixel = 0;
 	attr.background_pixel = 0x80808080;
-	attr.event_mask = ExposureMask | KeyPressMask | VisibilityChangeMask;
+	attr.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask | KeymapStateMask | ButtonPress | VisibilityChangeMask;
 
 	r->w = XCreateWindow(r->d,
 		parent_window,
@@ -1955,7 +1954,6 @@ main(int argc, char **argv)
 	/* Create the window */
 	create_window(&r, parent_window, cmap, vinfo, x, y, offset_x, offset_y);
 	set_win_atoms_hints(r.d, r.w, r.width, r.height);
-	XSelectInput(r.d, r.w, StructureNotifyMask | KeyPressMask | KeymapStateMask | ButtonPressMask);
 	XMapRaised(r.d, r.w);
 
 	/* If embed, listen for other events as well */
@@ -2059,6 +2057,30 @@ main(int argc, char **argv)
 		XftColorFree(r.d, vinfo.visual, cmap, &r.xft_colors[i]);
 #endif
 
+	for (i = 0; i < 3; ++i) {
+		XFreeGC(r.d, r.fgs[i]);
+		XFreeGC(r.d, r.bgs[i]);
+	}
+
+	for (i = 0; i < 4; ++i) {
+		XFreeGC(r.d, r.borders_bg[i]);
+		XFreeGC(r.d, r.p_borders_bg[i]);
+		XFreeGC(r.d, r.c_borders_bg[i]);
+		XFreeGC(r.d, r.ch_borders_bg[i]);
+	}
+
+	XDestroyIC(r.xic);
+	XCloseIM(r.xim);
+
+#ifdef USE_XFT
+	for (i = 0; i < 3; ++i)
+		XftColorFree(r.d, vinfo.visual, cmap, &r.xft_colors[i]);
+	XftFontClose(r.d, r.font);
+	XftDrawDestroy(r.xftdraw);
+#else
+	XFreeFontSet(r.d, r.font);
+#endif
+
 	free(r.ps1);
 	free(fontname);
 	free(text);
@@ -2067,6 +2089,8 @@ main(int argc, char **argv)
 	free(lines);
 	free(vlines);
 	compls_delete(cs);
+
+	XFreeColormap(r.d, cmap);
 
 	XDestroyWindow(r.d, r.w);
 	XCloseDisplay(r.d);
