@@ -1,31 +1,30 @@
+#include <ctype.h> /* isalnum */
+#include <errno.h>
+#include <limits.h>
+#include <locale.h> /* setlocale */
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>		/* strdup, strlen */
-#include <ctype.h>		/* isalnum */
-#include <locale.h>		/* setlocale */
-#include <unistd.h>
+#include <string.h> /* strdup, strlen */
 #include <sysexits.h>
-#include <limits.h>
-#include <errno.h>
 #include <unistd.h>
-#include <stdint.h>
 
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include <X11/Xresource.h>
 #include <X11/Xcms.h>
+#include <X11/Xlib.h>
+#include <X11/Xresource.h>
+#include <X11/Xutil.h>
 #include <X11/keysym.h>
 
 #ifdef USE_XINERAMA
-# include <X11/extensions/Xinerama.h>
+#include <X11/extensions/Xinerama.h>
 #endif
 
 #ifdef USE_XFT
-# include <X11/Xft/Xft.h>
+#include <X11/Xft/Xft.h>
 #endif
 
 #ifndef VERSION
-# define VERSION "unknown"
+#define VERSION "unknown"
 #endif
 
 #define resname "MyMenu"
@@ -34,9 +33,9 @@
 #define SYM_BUF_SIZE 4
 
 #ifdef USE_XFT
-# define default_fontname "monospace"
+#define default_fontname "monospace"
 #else
-# define default_fontname "fixed"
+#define default_fontname "fixed"
 #endif
 
 #define ARGS "Aahmve:p:P:l:f:W:H:x:y:b:B:t:T:c:C:s:S:d:G:g:I:i:J:j:"
@@ -51,7 +50,7 @@
  * style, fall back to `strstr(3)`
  */
 #ifndef USE_STRCASESTR
-# define strcasestr strstr
+#define strcasestr strstr
 #endif
 
 /* The number of char to read */
@@ -61,24 +60,25 @@
 #define LINES_CHUNK 64
 
 /* Abort on NULL */
-#define check_allocation(a) {				\
-    if (a == NULL) {					\
-      fprintf(stderr, "Could not allocate memory\n");	\
-      abort();						\
-    }							\
-  }
+#define check_allocation(a)                                                  \
+	{                                                                    \
+		if (a == NULL) {                                             \
+			fprintf(stderr, "Could not allocate memory\n");      \
+			abort();                                             \
+		}                                                            \
+	}
 
 #define inner_height(r) (r->height - r->borders[0] - r->borders[2])
-#define inner_width(r)  (r->width  - r->borders[1] - r->borders[3])
+#define inner_width(r) (r->width - r->borders[1] - r->borders[3])
 
 /* The states of the event loop */
-enum state {LOOPING, OK_LOOP, OK, ERR};
+enum state { LOOPING, OK_LOOP, OK, ERR };
 
-/* 
+/*
  * For the drawing-related function. The text to be rendere could be
  * the prompt, a completion or a highlighted completion
  */
-enum obj_type {PROMPT, COMPL, COMPL_HIGH};
+enum obj_type { PROMPT, COMPL, COMPL_HIGH };
 
 /* These are the possible action to be performed after user input. */
 enum action {
@@ -97,82 +97,83 @@ enum action {
 /* A big set of values that needs to be carried around for drawing. A
 big struct to rule them all */
 struct rendering {
-	Display		*d;	/* Connection to xorg */
-	Window		w;
-	XIM		xim;
-	int		width;
-	int		height;
-	int		p_padding[4];
-	int		c_padding[4];
-	int		ch_padding[4];
-	int		x_zero; /* the "zero" on the x axis (may not be exactly 0 'cause the borders) */
-	int		y_zero; /* like x_zero but for the y axis */
+	Display *d; /* Connection to xorg */
+	Window w;
+	XIM xim;
+	int width;
+	int height;
+	int p_padding[4];
+	int c_padding[4];
+	int ch_padding[4];
+	int x_zero; /* the "zero" on the x axis (may not be exactly 0 'cause
+		       the borders) */
+	int y_zero; /* like x_zero but for the y axis */
 
-	size_t		offset; /* scroll offset */
+	size_t offset; /* scroll offset */
 
-	short		free_text;
-	short		first_selected;
-	short		multiple_select;
+	short free_text;
+	short first_selected;
+	short multiple_select;
 
 	/* four border width */
-	int		borders[4];
-	int		p_borders[4];
-	int		c_borders[4];
-	int		ch_borders[4];
+	int borders[4];
+	int p_borders[4];
+	int c_borders[4];
+	int ch_borders[4];
 
-	short		horizontal_layout;
+	short horizontal_layout;
 
 	/* prompt */
-	char		*ps1;
-	int		ps1len;
-	int		ps1w;	/* ps1 width */
-	int		ps1h;	/* ps1 height */
+	char *ps1;
+	int ps1len;
+	int ps1w; /* ps1 width */
+	int ps1h; /* ps1 height */
 
-	int		text_height; /* cache for the vertical layout */
+	int text_height; /* cache for the vertical layout */
 
-	XIC		xic;
+	XIC xic;
 
 	/* colors */
-	GC		fgs[4];
-	GC		bgs[4];
-	GC		borders_bg[4];
-	GC		p_borders_bg[4];
-	GC		c_borders_bg[4];
-	GC		ch_borders_bg[4];
+	GC fgs[4];
+	GC bgs[4];
+	GC borders_bg[4];
+	GC p_borders_bg[4];
+	GC c_borders_bg[4];
+	GC ch_borders_bg[4];
 #ifdef USE_XFT
-	XftFont		*font;
-	XftDraw		*xftdraw;
-	XftColor	xft_colors[3];
+	XftFont *font;
+	XftDraw *xftdraw;
+	XftColor xft_colors[3];
 #else
-	XFontSet	font;
+	XFontSet font;
 #endif
 };
 
 struct completion {
-	char	*completion;
-	char	*rcompletion;
+	char *completion;
+	char *rcompletion;
 };
 
 /* Wrap the linked list of completions */
 struct completions {
-	struct completion	*completions;
-	ssize_t			selected;
-	size_t			length;
+	struct completion *completions;
+	ssize_t selected;
+	size_t length;
 };
 
 /* idea stolen from lemonbar. ty lemonboy */
 typedef union {
 	struct {
-		uint8_t	b;
-		uint8_t	g;
-		uint8_t	r;
-		uint8_t	a;
+		uint8_t b;
+		uint8_t g;
+		uint8_t r;
+		uint8_t a;
 	} rgba;
-	uint32_t	v;
+	uint32_t v;
 } rgba_t;
 
-extern char	*optarg;
-extern int	optind;
+extern char *optarg;
+extern int optind;
 
 /* Return a newly allocated (and empty) completion list */
 struct completions *
@@ -205,7 +206,7 @@ compls_delete(struct completions *cs)
 	free(cs);
 }
 
-/* 
+/*
  * Create a completion list from a text and the list of possible
  * completions (null terminated). Expects a non-null `cs'. `lines' and
  * `vlines' should have the same length OR `vlines' is NULL.
@@ -213,9 +214,9 @@ compls_delete(struct completions *cs)
 void
 filter(struct completions *cs, char *text, char **lines, char **vlines)
 {
-	size_t	index = 0;
-	size_t	matching = 0;
-	char	*l;
+	size_t index = 0;
+	size_t matching = 0;
+	char *l;
 
 	if (vlines == NULL)
 		vlines = lines;
@@ -228,7 +229,7 @@ filter(struct completions *cs, char *text, char **lines, char **vlines)
 
 		if (strcasestr(l, text) != NULL) {
 			struct completion *c = &cs->completions[matching];
-			c->completion  = l;
+			c->completion = l;
 			c->rcompletion = lines[index];
 			matching++;
 		}
@@ -241,7 +242,8 @@ filter(struct completions *cs, char *text, char **lines, char **vlines)
 
 /* Update the given completion */
 void
-update_completions(struct completions *cs, char *text, char **lines, char **vlines, short first_selected)
+update_completions(struct completions *cs, char *text, char **lines,
+	char **vlines, short first_selected)
 {
 	filter(cs, text, lines, vlines);
 	if (first_selected && cs->length > 0)
@@ -255,10 +257,11 @@ update_completions(struct completions *cs, char *text, char **lines, char **vlin
  * set to `ERR'.
  */
 void
-complete(struct completions *cs, short first_selected, short p, char **text, int *textlen, enum state *status)
+complete(struct completions *cs, short first_selected, short p, char **text,
+	int *textlen, enum state *status)
 {
-	struct completion	*n;
-	int			index;
+	struct completion *n;
+	int index;
 
 	if (cs == NULL || cs->length == 0)
 		return;
@@ -267,10 +270,8 @@ complete(struct completions *cs, short first_selected, short p, char **text, int
 	 * If the first is always selected and the first entry is
 	 * different from the text, expand the text and return
 	 */
-	if (first_selected
-	    && cs->selected == 0
-	    && strcmp(cs->completions->completion, *text) != 0
-	    && !p) {
+	if (first_selected && cs->selected == 0
+		&& strcmp(cs->completions->completion, *text) != 0 && !p) {
 		free(*text);
 		*text = strdup(cs->completions->completion);
 		if (text == NULL) {
@@ -285,7 +286,8 @@ complete(struct completions *cs, short first_selected, short p, char **text, int
 
 	if (index == -1 && p)
 		index = 0;
-	index = cs->selected = (cs->length + (p ? index - 1 : index + 1)) % cs->length;
+	index = cs->selected
+		= (cs->length + (p ? index - 1 : index + 1)) % cs->length;
 
 	n = &cs->completions[cs->selected];
 
@@ -303,10 +305,10 @@ complete(struct completions *cs, short first_selected, short p, char **text, int
 int
 pushc(char **p, int maxlen, char c)
 {
-	int	len;
+	int len;
 
 	len = strnlen(*p, maxlen);
-	if (!(len < maxlen -2)) {
+	if (!(len < maxlen - 2)) {
 		char *newptr;
 
 		maxlen += maxlen >> 1;
@@ -317,11 +319,11 @@ pushc(char **p, int maxlen, char c)
 	}
 
 	(*p)[len] = c;
-	(*p)[len+1] = '\0';
+	(*p)[len + 1] = '\0';
 	return maxlen;
 }
 
-/* 
+/*
  * Remove the last rune from the *UTF-8* string! This is different
  * from just setting the last byte to 0 (in some cases ofc). Return a
  * pointer (e) to the last nonzero char. If e < p then p is empty!
@@ -358,8 +360,8 @@ popc(char *p)
 void
 popw(char *w)
 {
-	int	len;
-	short	in_word = 1;
+	int len;
+	short in_word = 1;
 
 	if ((len = strlen(w)) == 0)
 		return;
@@ -378,15 +380,15 @@ popw(char *w)
 	}
 }
 
-/* 
+/*
  * If the string is surrounded by quates (`"') remove them and replace
  * every `\"' in the string with a single double-quote.
  */
 char *
 normalize_str(const char *str)
 {
-	int	len, p;
-	char	*s;
+	int len, p;
+	char *s;
 
 	if ((len = strlen(str)) == 0)
 		return NULL;
@@ -408,7 +410,7 @@ normalize_str(const char *str)
 				break;
 		}
 		if (c == '"') {
-			str++;	/* skip only this char */
+			str++; /* skip only this char */
 			continue;
 		}
 		s[p] = c;
@@ -422,8 +424,8 @@ normalize_str(const char *str)
 size_t
 read_stdin(char **buf)
 {
-	size_t	offset = 0;
-	size_t	len = STDIN_CHUNKS;
+	size_t offset = 0;
+	size_t len = STDIN_CHUNKS;
 
 	*buf = malloc(len * sizeof(char));
 	if (*buf == NULL)
@@ -449,7 +451,7 @@ read_stdin(char **buf)
 			(*buf)[i] = '\0';
 	}
 
- err:
+err:
 	fprintf(stderr, "Error in allocating memory for stdin.\n");
 	exit(EX_UNAVAILABLE);
 }
@@ -457,8 +459,8 @@ read_stdin(char **buf)
 size_t
 readlines(char ***lns, char **buf)
 {
-	size_t	i, len, ll, lines;
-	short	in_line = 0;
+	size_t i, len, ll, lines;
+	short in_line = 0;
 
 	lines = 0;
 
@@ -466,7 +468,7 @@ readlines(char ***lns, char **buf)
 	len = read_stdin(buf);
 
 	ll = LINES_CHUNK;
-	*lns = malloc(ll * sizeof(char*));
+	*lns = malloc(ll * sizeof(char *));
 
 	if (*lns == NULL)
 		goto err;
@@ -490,7 +492,7 @@ readlines(char ***lns, char **buf)
 
 			if (lines == ll) { /* resize */
 				ll += LINES_CHUNK;
-				*lns = realloc(*lns, ll * sizeof(char*));
+				*lns = realloc(*lns, ll * sizeof(char *));
 				if (*lns == NULL)
 					goto err;
 			}
@@ -501,7 +503,7 @@ readlines(char ***lns, char **buf)
 
 	return lines;
 
- err:
+err:
 	fprintf(stderr, "Error in memory allocation.\n");
 	exit(EX_UNAVAILABLE);
 }
@@ -511,40 +513,50 @@ readlines(char ***lns, char **buf)
  * It'll return the width and set ret_width and ret_height if not NULL
  */
 int
-text_extents(char *str, int len, struct rendering *r, int *ret_width, int *ret_height)
+text_extents(char *str, int len, struct rendering *r, int *ret_width,
+	int *ret_height)
 {
-	int	height, width;
+	int height, width;
 #ifdef USE_XFT
-	XGlyphInfo	gi;
+	XGlyphInfo gi;
 	XftTextExtentsUtf8(r->d, r->font, str, len, &gi);
 	height = r->font->ascent - r->font->descent;
 	width = gi.width - gi.x;
 #else
-	XRectangle	rect;
+	XRectangle rect;
 	XmbTextExtents(r->font, str, len, NULL, &rect);
 	height = rect.height;
 	width = rect.width;
 #endif
-	if (ret_width != NULL)  *ret_width = width;
-	if (ret_height != NULL) *ret_height = height;
+	if (ret_width != NULL)
+		*ret_width = width;
+	if (ret_height != NULL)
+		*ret_height = height;
 	return width;
 }
 
 void
-draw_string(char *str, int len, int x, int y, struct rendering *r, enum obj_type tt)
+draw_string(char *str, int len, int x, int y, struct rendering *r,
+	enum obj_type tt)
 {
 #ifdef USE_XFT
 	XftColor xftcolor;
-	if (tt == PROMPT)     xftcolor = r->xft_colors[0];
-	if (tt == COMPL)      xftcolor = r->xft_colors[1];
-	if (tt == COMPL_HIGH) xftcolor = r->xft_colors[2];
+	if (tt == PROMPT)
+		xftcolor = r->xft_colors[0];
+	if (tt == COMPL)
+		xftcolor = r->xft_colors[1];
+	if (tt == COMPL_HIGH)
+		xftcolor = r->xft_colors[2];
 
 	XftDrawStringUtf8(r->xftdraw, &xftcolor, r->font, x, y, str, len);
 #else
 	GC gc;
-	if (tt == PROMPT)     gc = r->fgs[0];
-	if (tt == COMPL)      gc = r->fgs[1];
-	if (tt == COMPL_HIGH) gc = r->fgs[2];
+	if (tt == PROMPT)
+		gc = r->fgs[0];
+	if (tt == COMPL)
+		gc = r->fgs[1];
+	if (tt == COMPL_HIGH)
+		gc = r->fgs[2];
 	Xutf8DrawString(r->d, r->w, r->font, gc, x, y, str, len);
 #endif
 }
@@ -553,8 +565,8 @@ draw_string(char *str, int len, int x, int y, struct rendering *r, enum obj_type
 char *
 strdupn(char *str)
 {
-	int	len, i;
-	char	*dup;
+	int len, i;
+	char *dup;
 
 	len = strlen(str);
 
@@ -572,49 +584,56 @@ strdupn(char *str)
 }
 
 int
-draw_v_box(struct rendering *r, int y, char *prefix, int prefix_width, enum obj_type t, char *text)
+draw_v_box(struct rendering *r, int y, char *prefix, int prefix_width,
+	enum obj_type t, char *text)
 {
-	GC	*border_color, bg;
-	int	*padding, *borders;
-	int	ret = 0, inner_width, inner_height, x;
+	GC *border_color, bg;
+	int *padding, *borders;
+	int ret = 0, inner_width, inner_height, x;
 
 	switch (t) {
 	case PROMPT:
-		border_color	= r->p_borders_bg;
-		padding		= r->p_padding;
-		borders		= r->p_borders;
-		bg		= r->bgs[0];
+		border_color = r->p_borders_bg;
+		padding = r->p_padding;
+		borders = r->p_borders;
+		bg = r->bgs[0];
 		break;
 	case COMPL:
-		border_color	= r->c_borders_bg;
-		padding		= r->c_padding;
-		borders		= r->c_borders;
-		bg		= r->bgs[1];
+		border_color = r->c_borders_bg;
+		padding = r->c_padding;
+		borders = r->c_borders;
+		bg = r->bgs[1];
 		break;
 	case COMPL_HIGH:
-		border_color	= r->ch_borders_bg;
-		padding		= r->ch_padding;
-		borders		= r->ch_borders;
-		bg		= r->bgs[2];
+		border_color = r->ch_borders_bg;
+		padding = r->ch_padding;
+		borders = r->ch_borders;
+		bg = r->bgs[2];
 		break;
 	}
 
-	ret = borders[0] + padding[0] + r->text_height + padding[2] + borders[2];
+	ret = borders[0] + padding[0] + r->text_height + padding[2]
+		+ borders[2];
 
 	inner_width = inner_width(r) - borders[1] - borders[3];
 	inner_height = padding[0] + r->text_height + padding[2];
 
 	/* Border top */
-	XFillRectangle(r->d, r->w, border_color[0], r->x_zero, y, r->width, borders[0]);
+	XFillRectangle(r->d, r->w, border_color[0], r->x_zero, y, r->width,
+		borders[0]);
 
 	/* Border right */
-	XFillRectangle(r->d, r->w, border_color[1], r->x_zero + inner_width(r) - borders[1] , y, borders[1], ret);
+	XFillRectangle(r->d, r->w, border_color[1],
+		r->x_zero + inner_width(r) - borders[1], y, borders[1], ret);
 
 	/* Border bottom */
-	XFillRectangle(r->d, r->w, border_color[2], r->x_zero, y + borders[0] + padding[0] + r->text_height + padding[2], r->width, borders[2]);
+	XFillRectangle(r->d, r->w, border_color[2], r->x_zero,
+		y + borders[0] + padding[0] + r->text_height + padding[2],
+		r->width, borders[2]);
 
 	/* Border left */
-	XFillRectangle(r->d, r->w, border_color[3], r->x_zero, y, borders[3], ret);
+	XFillRectangle(
+		r->d, r->w, border_color[3], r->x_zero, y, borders[3], ret);
 
 	/* bg */
 	x = r->x_zero + borders[3];
@@ -634,35 +653,39 @@ draw_v_box(struct rendering *r, int y, char *prefix, int prefix_width, enum obj_
 }
 
 int
-draw_h_box(struct rendering *r, int x, char *prefix, int prefix_width, enum obj_type t, char *text)
+draw_h_box(struct rendering *r, int x, char *prefix, int prefix_width,
+	enum obj_type t, char *text)
 {
-	GC	*border_color, bg;
-	int	*padding, *borders;
-	int	ret = 0, inner_width, inner_height, y, text_width;
+	GC *border_color, bg;
+	int *padding, *borders;
+	int ret = 0, inner_width, inner_height, y, text_width;
 
 	switch (t) {
 	case PROMPT:
-		border_color	= r->p_borders_bg;
-		padding		= r->p_padding;
-		borders		= r->p_borders;
-		bg		= r->bgs[0];
+		border_color = r->p_borders_bg;
+		padding = r->p_padding;
+		borders = r->p_borders;
+		bg = r->bgs[0];
 		break;
 	case COMPL:
-		border_color	= r->c_borders_bg;
-		padding		= r->c_padding;
-		borders		= r->c_borders;
-		bg		= r->bgs[1];
+		border_color = r->c_borders_bg;
+		padding = r->c_padding;
+		borders = r->c_borders;
+		bg = r->bgs[1];
 		break;
 	case COMPL_HIGH:
-		border_color	= r->ch_borders_bg;
-		padding		= r->ch_padding;
-		borders		= r->ch_borders;
-		bg		= r->bgs[2];
+		border_color = r->ch_borders_bg;
+		padding = r->ch_padding;
+		borders = r->ch_borders;
+		bg = r->bgs[2];
 		break;
 	}
 
 	if (padding[0] < 0 || padding[2] < 0)
-		padding[0] = padding[2] = (inner_height(r) - borders[0] - borders[2] - r->text_height)/2;
+		padding[0] = padding[2]
+			= (inner_height(r) - borders[0] - borders[2]
+				  - r->text_height)
+			/ 2;
 
 	/* If they are still lesser than 0, set 'em to 0 */
 	if (padding[0] < 0 || padding[2] < 0)
@@ -679,16 +702,21 @@ draw_h_box(struct rendering *r, int x, char *prefix, int prefix_width, enum obj_
 	inner_height = inner_height(r) - borders[0] - borders[2];
 
 	/* Border top */
-	XFillRectangle(r->d, r->w, border_color[0], x, r->y_zero, ret, borders[0]);
+	XFillRectangle(
+		r->d, r->w, border_color[0], x, r->y_zero, ret, borders[0]);
 
 	/* Border right */
-	XFillRectangle(r->d, r->w, border_color[1], x + borders[3] + inner_width, r->y_zero, borders[1], inner_height(r));
+	XFillRectangle(r->d, r->w, border_color[1],
+		x + borders[3] + inner_width, r->y_zero, borders[1],
+		inner_height(r));
 
 	/* Border bottom */
-	XFillRectangle(r->d, r->w, border_color[2], x, r->y_zero + inner_height(r) - borders[2], ret, borders[2]);
+	XFillRectangle(r->d, r->w, border_color[2], x,
+		r->y_zero + inner_height(r) - borders[2], ret, borders[2]);
 
 	/* Border left */
-	XFillRectangle(r->d, r->w, border_color[3], x, r->y_zero, borders[3], inner_height(r));
+	XFillRectangle(r->d, r->w, border_color[3], x, r->y_zero, borders[3],
+		inner_height(r));
 
 	/* bg */
 	x += borders[3];
@@ -713,16 +741,18 @@ draw_h_box(struct rendering *r, int x, char *prefix, int prefix_width, enum obj_
 void
 draw_horizontally(struct rendering *r, char *text, struct completions *cs)
 {
-	size_t	i;
-	int	x = r->x_zero;
+	size_t i;
+	int x = r->x_zero;
 
 	/* Draw the prompt */
 	x += draw_h_box(r, x, r->ps1, r->ps1w, PROMPT, text);
 
 	for (i = r->offset; i < cs->length; ++i) {
-		enum obj_type t = cs->selected == (ssize_t)i ? COMPL_HIGH : COMPL;
+		enum obj_type t
+			= cs->selected == (ssize_t)i ? COMPL_HIGH : COMPL;
 
-		x += draw_h_box(r, x, NULL, 0, t, cs->completions[i].completion);
+		x += draw_h_box(
+			r, x, NULL, 0, t, cs->completions[i].completion);
 
 		if (x > inner_width(r))
 			break;
@@ -739,15 +769,17 @@ draw_horizontally(struct rendering *r, char *text, struct completions *cs)
 void
 draw_vertically(struct rendering *r, char *text, struct completions *cs)
 {
-	size_t	i;
-	int	y = r->y_zero;
+	size_t i;
+	int y = r->y_zero;
 
 	y += draw_v_box(r, y, r->ps1, r->ps1w, PROMPT, text);
 
 	for (i = r->offset; i < cs->length; ++i) {
-		enum obj_type t = cs->selected == (ssize_t)i ? COMPL_HIGH : COMPL;
+		enum obj_type t
+			= cs->selected == (ssize_t)i ? COMPL_HIGH : COMPL;
 
-		y += draw_v_box(r, y, NULL, 0, t, cs->completions[i].completion);
+		y += draw_v_box(
+			r, y, NULL, 0, t, cs->completions[i].completion);
 
 		if (y > inner_height(r))
 			break;
@@ -758,7 +790,8 @@ void
 draw(struct rendering *r, char *text, struct completions *cs)
 {
 	/* Draw the background */
-	XFillRectangle(r->d, r->w, r->bgs[1], r->x_zero, r->y_zero, inner_width(r), inner_height(r));
+	XFillRectangle(r->d, r->w, r->bgs[1], r->x_zero, r->y_zero,
+		inner_width(r), inner_height(r));
 
 	/* Draw the contents */
 	if (r->horizontal_layout)
@@ -768,16 +801,21 @@ draw(struct rendering *r, char *text, struct completions *cs)
 
 	/* Draw the borders */
 	if (r->borders[0] != 0)
-		XFillRectangle(r->d, r->w, r->borders_bg[0], 0, 0, r->width, r->borders[0]);
+		XFillRectangle(r->d, r->w, r->borders_bg[0], 0, 0, r->width,
+			r->borders[0]);
 
 	if (r->borders[1] != 0)
-		XFillRectangle(r->d, r->w, r->borders_bg[1], r->width - r->borders[1], 0, r->borders[1], r->height);
+		XFillRectangle(r->d, r->w, r->borders_bg[1],
+			r->width - r->borders[1], 0, r->borders[1],
+			r->height);
 
 	if (r->borders[2] != 0)
-		XFillRectangle(r->d, r->w, r->borders_bg[2], 0, r->height - r->borders[2], r->width, r->borders[2]);
+		XFillRectangle(r->d, r->w, r->borders_bg[2], 0,
+			r->height - r->borders[2], r->width, r->borders[2]);
 
 	if (r->borders[3] != 0)
-		XFillRectangle(r->d, r->w, r->borders_bg[3], 0, 0, r->borders[3], r->height);
+		XFillRectangle(r->d, r->w, r->borders_bg[3], 0, 0,
+			r->borders[3], r->height);
 
 	/* render! */
 	XFlush(r->d);
@@ -787,43 +825,25 @@ draw(struct rendering *r, char *text, struct completions *cs)
 void
 set_win_atoms_hints(Display *d, Window w, int width, int height)
 {
-	Atom		type;
-	XClassHint	*class_hint;
-	XSizeHints	*size_hint;
+	Atom type;
+	XClassHint *class_hint;
+	XSizeHints *size_hint;
 
 	type = XInternAtom(d, "_NET_WM_WINDOW_TYPE_DOCK", 0);
-	XChangeProperty(d,
-			w,
-			XInternAtom(d, "_NET_WM_WINDOW_TYPE", 0),
-			XInternAtom(d, "ATOM", 0),
-			32,
-			PropModeReplace,
-			(unsigned char *)&type,
-			1
-			);
+	XChangeProperty(d, w, XInternAtom(d, "_NET_WM_WINDOW_TYPE", 0),
+		XInternAtom(d, "ATOM", 0), 32, PropModeReplace,
+		(unsigned char *)&type, 1);
 
 	/* some window managers honor this properties */
 	type = XInternAtom(d, "_NET_WM_STATE_ABOVE", 0);
-	XChangeProperty(d,
-			w,
-			XInternAtom(d, "_NET_WM_STATE", 0),
-			XInternAtom(d, "ATOM", 0),
-			32,
-			PropModeReplace,
-			(unsigned char *)&type,
-			1
-			);
+	XChangeProperty(d, w, XInternAtom(d, "_NET_WM_STATE", 0),
+		XInternAtom(d, "ATOM", 0), 32, PropModeReplace,
+		(unsigned char *)&type, 1);
 
 	type = XInternAtom(d, "_NET_WM_STATE_FOCUSED", 0);
-	XChangeProperty(d,
-			w,
-			XInternAtom(d, "_NET_WM_STATE", 0),
-			XInternAtom(d, "ATOM", 0),
-			32,
-			PropModeAppend,
-			(unsigned char *)&type,
-			1
-			);
+	XChangeProperty(d, w, XInternAtom(d, "_NET_WM_STATE", 0),
+		XInternAtom(d, "ATOM", 0), 32, PropModeAppend,
+		(unsigned char *)&type, 1);
 
 	/* Setting window hints */
 	class_hint = XAllocClassHint();
@@ -866,7 +886,7 @@ get_wh(Display *d, Window *w, int *width, int *height)
 int
 grabfocus(Display *d, Window w)
 {
-	int	i;
+	int i;
 	for (i = 0; i < 100; ++i) {
 		Window focuswin;
 		int revert_to_win;
@@ -882,7 +902,7 @@ grabfocus(Display *d, Window w)
 	return 0;
 }
 
-/* 
+/*
  * I know this may seem a little hackish BUT is the only way I managed
  * to actually grab that goddam keyboard. Only one call to
  * XGrabKeyboard does not always end up with the keyboard grabbed!
@@ -892,7 +912,9 @@ take_keyboard(Display *d, Window w)
 {
 	int i;
 	for (i = 0; i < 100; i++) {
-		if (XGrabKeyboard(d, w, 1, GrabModeAsync, GrabModeAsync, CurrentTime) == GrabSuccess)
+		if (XGrabKeyboard(d, w, 1, GrabModeAsync, GrabModeAsync,
+			    CurrentTime)
+			== GrabSuccess)
 			return 1;
 		usleep(1000);
 	}
@@ -915,7 +937,7 @@ parse_color(const char *str, const char *def)
 	/* +1 for the # ath the start */
 	if (*str != '#' || len > 9 || len < 4)
 		goto invc;
-	++str; 			/* skip the # */
+	++str; /* skip the # */
 
 	errno = 0;
 	tmp = (rgba_t)(uint32_t)strtoul(str, &ep, 16);
@@ -923,11 +945,10 @@ parse_color(const char *str, const char *def)
 	if (errno)
 		goto invc;
 
-	switch (len-1) {
+	switch (len - 1) {
 	case 3:
 		/* expand #rgb -> #rrggbb */
-		tmp.v =   (tmp.v & 0xf00) * 0x1100
-			| (tmp.v & 0x0f0) * 0x0110
+		tmp.v = (tmp.v & 0xf00) * 0x1100 | (tmp.v & 0x0f0) * 0x0110
 			| (tmp.v & 0x00f) * 0x0011;
 	case 6:
 		/* assume 0xff opacity */
@@ -945,7 +966,7 @@ parse_color(const char *str, const char *def)
 
 	return 0U;
 
- invc:
+invc:
 	fprintf(stderr, "Invalid color: \"%s\".\n", str);
 	if (def != NULL)
 		return parse_color(def, NULL);
@@ -953,45 +974,49 @@ parse_color(const char *str, const char *def)
 		return 0U;
 }
 
-/* 
+/*
  * Given a string try to parse it as a number or return `default_value'.
  */
 int
 parse_integer(const char *str, int default_value)
 {
-	long	lval;
-	char	*ep;
+	long lval;
+	char *ep;
 
 	errno = 0;
 	lval = strtol(str, &ep, 10);
 
 	if (str[0] == '\0' || *ep != '\0') { /* NaN */
-		fprintf(stderr, "'%s' is not a valid number! Using %d as default.\n", str, default_value);
+		fprintf(stderr,
+			"'%s' is not a valid number! Using %d as default.\n",
+			str, default_value);
 		return default_value;
 	}
 
-	if ((errno == ERANGE && (lval == LONG_MAX || lval == LONG_MIN)) ||
-	    (lval > INT_MAX || lval < INT_MIN)) {
-		fprintf(stderr, "%s out of range! Using %d as default.\n", str, default_value);
+	if ((errno == ERANGE && (lval == LONG_MAX || lval == LONG_MIN))
+		|| (lval > INT_MAX || lval < INT_MIN)) {
+		fprintf(stderr, "%s out of range! Using %d as default.\n",
+			str, default_value);
 		return default_value;
 	}
 
 	return lval;
 }
 
-/* Like parse_integer but recognize the percentages (i.e. strings ending with `%') */
+/* Like parse_integer but recognize the percentages (i.e. strings ending with
+ * `%') */
 int
 parse_int_with_percentage(const char *str, int default_value, int max)
 {
 	int len = strlen(str);
 
-	if (len > 0 && str[len-1] == '%') {
+	if (len > 0 && str[len - 1] == '%') {
 		int val;
 		char *cpy;
 
 		cpy = strdup(str);
 		check_allocation(cpy);
-		cpy[len-1] = '\0';
+		cpy[len - 1] = '\0';
 		val = parse_integer(cpy, default_value);
 		free(cpy);
 		return val * max / 100;
@@ -1000,7 +1025,7 @@ parse_int_with_percentage(const char *str, int default_value, int max)
 	return parse_integer(str, default_value);
 }
 
-/* 
+/*
  * Like parse_int_with_percentage but understands some special values:
  * - middle that is (max-self)/2
  * - start  that is 0
@@ -1012,9 +1037,9 @@ parse_int_with_pos(const char *str, int default_value, int max, int self)
 	if (!strcmp(str, "start"))
 		return 0;
 	if (!strcmp(str, "middle"))
-		return (max - self)/2;
+		return (max - self) / 2;
 	if (!strcmp(str, "end"))
-		return max-self;
+		return max - self;
 	return parse_int_with_percentage(str, default_value, max);
 }
 
@@ -1023,15 +1048,15 @@ parse_int_with_pos(const char *str, int default_value, int max, int self)
 char **
 parse_csslike(const char *str)
 {
-	int	i, j;
-	char	*s, *token, **ret;
-	short	any_null;
+	int i, j;
+	char *s, *token, **ret;
+	short any_null;
 
 	s = strdup(str);
 	if (s == NULL)
 		return NULL;
 
-	ret = malloc(4 * sizeof(char*));
+	ret = malloc(4 * sizeof(char *));
 	if (ret == NULL) {
 		free(s);
 		return NULL;
@@ -1052,7 +1077,8 @@ parse_csslike(const char *str)
 	if (i == 3)
 		ret[3] = strdup(ret[1]);
 
-	/* before we didn't check for the return type of strdup, here we will */
+	/* before we didn't check for the return type of strdup, here we will
+	 */
 
 	any_null = 0;
 	for (i = 0; i < 4; ++i)
@@ -1072,16 +1098,16 @@ parse_csslike(const char *str)
 	return ret;
 }
 
-/* 
+/*
  * Given an event, try to understand what the users wants. If the
  * return value is ADD_CHAR then `input' is a pointer to a string that
  * will need to be free'ed later.
  */
-enum
-action parse_event(Display *d, XKeyPressedEvent *ev, XIC xic, char **input)
+enum action
+parse_event(Display *d, XKeyPressedEvent *ev, XIC xic, char **input)
 {
-	char	str[SYM_BUF_SIZE] = {0};
-	Status	s;
+	char str[SYM_BUF_SIZE] = { 0 };
+	Status s;
 
 	if (ev->keycode == XKeysymToKeycode(d, XK_BackSpace))
 		return DEL_CHAR;
@@ -1099,7 +1125,9 @@ action parse_event(Display *d, XKeyPressedEvent *ev, XIC xic, char **input)
 	s = 0;
 	Xutf8LookupString(xic, ev, str, SYM_BUF_SIZE, 0, &s);
 	if (s == XBufferOverflow) {
-		fprintf(stderr, "Buffer overflow when trying to create keyboard symbol map.\n");
+		fprintf(stderr,
+			"Buffer overflow when trying to create keyboard "
+			"symbol map.\n");
 		return EXIT;
 	}
 
@@ -1132,7 +1160,8 @@ action parse_event(Display *d, XKeyPressedEvent *ev, XIC xic, char **input)
 }
 
 void
-confirm(enum state *status, struct rendering *r, struct completions *cs, char **text, int *textlen)
+confirm(enum state *status, struct rendering *r, struct completions *cs,
+	char **text, int *textlen)
 {
 	if ((cs->selected != -1) || (cs->length > 0 && r->first_selected)) {
 		/* if there is something selected expand it and return */
@@ -1166,7 +1195,8 @@ confirm(enum state *status, struct rendering *r, struct completions *cs, char **
 
 /* event loop */
 enum state
-loop(struct rendering *r, char **text, int *textlen, struct completions *cs, char **lines, char **vlines)
+loop(struct rendering *r, char **text, int *textlen, struct completions *cs,
+	char **lines, char **vlines)
 {
 	enum state status = LOOPING;
 
@@ -1199,7 +1229,7 @@ loop(struct rendering *r, char **text, int *textlen, struct completions *cs, cha
 			break;
 
 		case KeyPress: {
-			XKeyPressedEvent *ev = (XKeyPressedEvent*)&e;
+			XKeyPressedEvent *ev = (XKeyPressedEvent *)&e;
 			char *input;
 
 			switch (parse_event(r->d, ev, r->xic, &input)) {
@@ -1220,26 +1250,30 @@ loop(struct rendering *r, char **text, int *textlen, struct completions *cs, cha
 			}
 
 			case PREV_COMPL: {
-				complete(cs, r->first_selected, 1, text, textlen, &status);
+				complete(cs, r->first_selected, 1, text,
+					textlen, &status);
 				r->offset = cs->selected;
 				break;
 			}
 
 			case NEXT_COMPL: {
-				complete(cs, r->first_selected, 0, text, textlen, &status);
+				complete(cs, r->first_selected, 0, text,
+					textlen, &status);
 				r->offset = cs->selected;
 				break;
 			}
 
 			case DEL_CHAR:
 				popc(*text);
-				update_completions(cs, *text, lines, vlines, r->first_selected);
+				update_completions(cs, *text, lines, vlines,
+					r->first_selected);
 				r->offset = 0;
 				break;
 
 			case DEL_WORD: {
 				popw(*text);
-				update_completions(cs, *text, lines, vlines, r->first_selected);
+				update_completions(cs, *text, lines, vlines,
+					r->first_selected);
 				break;
 			}
 
@@ -1247,7 +1281,8 @@ loop(struct rendering *r, char **text, int *textlen, struct completions *cs, cha
 				int i;
 				for (i = 0; i < *textlen; ++i)
 					*(*text + i) = 0;
-				update_completions(cs, *text, lines, vlines, r->first_selected);
+				update_completions(cs, *text, lines, vlines,
+					r->first_selected);
 				r->offset = 0;
 				break;
 			}
@@ -1267,16 +1302,20 @@ loop(struct rendering *r, char **text, int *textlen, struct completions *cs, cha
 					break;
 
 				for (i = 0; i < str_len; ++i) {
-					*textlen = pushc(text, *textlen, input[i]);
+					*textlen = pushc(
+						text, *textlen, input[i]);
 					if (*textlen == -1) {
-						fprintf(stderr, "Memory allocation error\n");
+						fprintf(stderr,
+							"Memory allocation "
+							"error\n");
 						status = ERR;
 						break;
 					}
 				}
 
 				if (status != ERR) {
-					update_completions(cs, *text, lines, vlines, r->first_selected);
+					update_completions(cs, *text, lines,
+						vlines, r->first_selected);
 					free(input);
 				}
 
@@ -1295,7 +1334,7 @@ loop(struct rendering *r, char **text, int *textlen, struct completions *cs, cha
 		}
 
 		case ButtonPress: {
-			XButtonPressedEvent *ev = (XButtonPressedEvent*)&e;
+			XButtonPressedEvent *ev = (XButtonPressedEvent *)&e;
 			/* if (ev->button == Button1) { /\* click *\/ */
 			/*   int x = ev->x - r.border_w; */
 			/*   int y = ev->y - r.border_n; */
@@ -1306,7 +1345,8 @@ loop(struct rendering *r, char **text, int *textlen, struct completions *cs, cha
 				r->offset = MAX((ssize_t)r->offset - 1, 0);
 
 			if (ev->button == Button5) /* scroll down */
-				r->offset = MIN(r->offset + 1, cs->length - 1);
+				r->offset
+					= MIN(r->offset + 1, cs->length - 1);
 
 			break;
 		}
@@ -1328,7 +1368,8 @@ load_font(struct rendering *r, const char *fontname)
 	char **missing_charset_list;
 	int missing_charset_count;
 
-	r->font = XCreateFontSet(r->d, fontname, &missing_charset_list, &missing_charset_count, NULL);
+	r->font = XCreateFontSet(r->d, fontname, &missing_charset_list,
+		&missing_charset_count, NULL);
 	if (r->font != NULL)
 		return 0;
 
@@ -1344,9 +1385,9 @@ load_font(struct rendering *r, const char *fontname)
 void
 xim_init(struct rendering *r, XrmDatabase *xdb)
 {
-	XIMStyle	best_match_style;
-	XIMStyles	*xis;
-	int		i;
+	XIMStyle best_match_style;
+	XIMStyles *xis;
+	int i;
 
 	/* Open the X input method */
 	r->xim = XOpenIM(r->d, *xdb, resname, resclass);
@@ -1368,33 +1409,33 @@ xim_init(struct rendering *r, XrmDatabase *xdb)
 	XFree(xis);
 
 	if (!best_match_style)
-		fprintf(stderr, "No matching input style could be determined\n");
+		fprintf(stderr,
+			"No matching input style could be determined\n");
 
-	r->xic = XCreateIC(r->xim, XNInputStyle, best_match_style, XNClientWindow, r->w, XNFocusWindow, r->w, NULL);
+	r->xic = XCreateIC(r->xim, XNInputStyle, best_match_style,
+		XNClientWindow, r->w, XNFocusWindow, r->w, NULL);
 	check_allocation(r->xic);
 }
 
 void
-create_window(struct rendering *r, Window parent_window, Colormap cmap, XVisualInfo vinfo, int x, int y, int ox, int oy, unsigned long background_pixel)
+create_window(struct rendering *r, Window parent_window, Colormap cmap,
+	XVisualInfo vinfo, int x, int y, int ox, int oy,
+	unsigned long background_pixel)
 {
-	XSetWindowAttributes	attr;
+	XSetWindowAttributes attr;
 
 	/* Create the window */
 	attr.colormap = cmap;
 	attr.override_redirect = 1;
 	attr.border_pixel = 0;
 	attr.background_pixel = background_pixel;
-	attr.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask | KeymapStateMask | ButtonPress | VisibilityChangeMask;
+	attr.event_mask = StructureNotifyMask | ExposureMask | KeyPressMask
+		| KeymapStateMask | ButtonPress | VisibilityChangeMask;
 
-	r->w = XCreateWindow(r->d,
-		parent_window,
-		x + ox, y + oy,
-		r->width, r->height,
-		0,
-		vinfo.depth,
-		InputOutput,
-		vinfo.visual,
-		CWBorderPixel | CWBackPixel | CWColormap | CWEventMask | CWOverrideRedirect,
+	r->w = XCreateWindow(r->d, parent_window, x + ox, y + oy, r->width,
+		r->height, 0, vinfo.depth, InputOutput, vinfo.visual,
+		CWBorderPixel | CWBackPixel | CWColormap | CWEventMask
+			| CWOverrideRedirect,
 		&attr);
 }
 
@@ -1403,7 +1444,8 @@ ps1extents(struct rendering *r)
 {
 	char *dup;
 	dup = strdupn(r->ps1);
-	text_extents(dup == NULL ? r->ps1 : dup, r->ps1len, r, &r->ps1w, &r->ps1h);
+	text_extents(
+		dup == NULL ? r->ps1 : dup, r->ps1len, r, &r->ps1w, &r->ps1h);
 	free(dup);
 }
 
@@ -1412,32 +1454,37 @@ usage(char *prgname)
 {
 	fprintf(stderr,
 		"%s [-Aahmv] [-B colors] [-b size] [-C color] [-c color]\n"
-		"       [-d separator] [-e window] [-f font] [-G color] [-g size]\n"
-		"       [-H height] [-I color] [-i size] [-J color] [-j size] [-l layout]\n"
-		"       [-P padding] [-p prompt] [-S color] [-s color] [-T color]\n"
-		"       [-t color] [-W width] [-x coord] [-y coord]\n", prgname);
+		"       [-d separator] [-e window] [-f font] [-G color] [-g "
+		"size]\n"
+		"       [-H height] [-I color] [-i size] [-J color] [-j "
+		"size] [-l layout]\n"
+		"       [-P padding] [-p prompt] [-S color] [-s color] [-T "
+		"color]\n"
+		"       [-t color] [-W width] [-x coord] [-y coord]\n",
+		prgname);
 }
 
 int
 main(int argc, char **argv)
 {
-	struct completions	*cs;
-	struct rendering	r;
-	XVisualInfo		vinfo;
-	Colormap		cmap;
-	size_t			nlines, i;
-	Window			parent_window;
-	XrmDatabase		xdb;
-	unsigned long		fgs[3], bgs[3]; /* prompt, compl, compl_highlighted */
-	unsigned long		borders_bg[4], p_borders_bg[4], c_borders_bg[4], ch_borders_bg[4]; /* N E S W */
-	enum state		status;
-	int			ch;
-	int			offset_x, offset_y, x, y;
-	int			textlen, d_width, d_height;
-	short			embed;
-	char			*sep, *parent_window_id;
-	char			**lines, *buf, **vlines;
-	char			*fontname, *text, *xrm;
+	struct completions *cs;
+	struct rendering r;
+	XVisualInfo vinfo;
+	Colormap cmap;
+	size_t nlines, i;
+	Window parent_window;
+	XrmDatabase xdb;
+	unsigned long fgs[3], bgs[3]; /* prompt, compl, compl_highlighted */
+	unsigned long borders_bg[4], p_borders_bg[4], c_borders_bg[4],
+		ch_borders_bg[4]; /* N E S W */
+	enum state status;
+	int ch;
+	int offset_x, offset_y, x, y;
+	int textlen, d_width, d_height;
+	short embed;
+	char *sep, *parent_window_id;
+	char **lines, *buf, **vlines;
+	char *fontname, *text, *xrm;
 
 #ifdef __OpenBSD__
 	/* stdio & rpath: to read/write stdio/stdout/stderr */
@@ -1455,13 +1502,13 @@ main(int argc, char **argv)
 
 	while ((ch = getopt(argc, argv, ARGS)) != -1) {
 		switch (ch) {
-		case 'h':	/* help */
+		case 'h': /* help */
 			usage(*argv);
 			return 0;
-		case 'v':	/* version */
+		case 'v': /* version */
 			fprintf(stderr, "%s version: %s\n", *argv, VERSION);
 			return 0;
-		case 'e':	/* embed */
+		case 'e': /* embed */
 			parent_window_id = strdup(optarg);
 			check_allocation(parent_window_id);
 			break;
@@ -1488,7 +1535,7 @@ main(int argc, char **argv)
 	if (sep != NULL) {
 		int l;
 		l = strlen(sep);
-		vlines = calloc(nlines, sizeof(char*));
+		vlines = calloc(nlines, sizeof(char *));
 		check_allocation(vlines);
 
 		for (i = 0; i < nlines; i++) {
@@ -1553,7 +1600,8 @@ main(int argc, char **argv)
 	}
 
 	embed = 1;
-	if (! (parent_window_id && (parent_window = strtol(parent_window_id, NULL, 0)))) {
+	if (!(parent_window_id
+		    && (parent_window = strtol(parent_window_id, NULL, 0)))) {
 		parent_window = DefaultRootWindow(r.d);
 		embed = 0;
 	}
@@ -1564,17 +1612,18 @@ main(int argc, char **argv)
 #ifdef USE_XINERAMA
 	if (!embed && XineramaIsActive(r.d)) { /* find the mice */
 		XineramaScreenInfo *info;
-		Window		rr;
-		Window		root;
-		int		number_of_screens, monitors, i;
-		int		root_x, root_y, win_x, win_y;
-		unsigned int	mask;
-		short		res;
+		Window rr;
+		Window root;
+		int number_of_screens, monitors, i;
+		int root_x, root_y, win_x, win_y;
+		unsigned int mask;
+		short res;
 
 		number_of_screens = XScreenCount(r.d);
 		for (i = 0; i < number_of_screens; ++i) {
 			root = XRootWindow(r.d, i);
-			res = XQueryPointer(r.d, root, &rr, &rr, &root_x, &root_y, &win_x, &win_y, &mask);
+			res = XQueryPointer(r.d, root, &rr, &rr, &root_x,
+				&root_y, &win_x, &win_y, &mask);
 			if (res)
 				break;
 		}
@@ -1589,8 +1638,12 @@ main(int argc, char **argv)
 		info = XineramaQueryScreens(r.d, &monitors);
 		if (info) {
 			for (i = 0; i < monitors; ++i) {
-				if (info[i].x_org <= root_x && root_x <= (info[i].x_org + info[i].width)
-				    && info[i].y_org <= root_y && root_y <= (info[i].y_org + info[i].height)) {
+				if (info[i].x_org <= root_x
+					&& root_x <= (info[i].x_org
+						   + info[i].width)
+					&& info[i].y_org <= root_y
+					&& root_y <= (info[i].y_org
+						   + info[i].height)) {
 					offset_x = info[i].x_org;
 					offset_y = info[i].y_org;
 					d_width = info[i].width;
@@ -1604,7 +1657,8 @@ main(int argc, char **argv)
 #endif
 
 	XMatchVisualInfo(r.d, DefaultScreen(r.d), 32, TrueColor, &vinfo);
-	cmap = XCreateColormap(r.d, XDefaultRootWindow(r.d), vinfo.visual, AllocNone);
+	cmap = XCreateColormap(
+		r.d, XDefaultRootWindow(r.d), vinfo.visual, AllocNone);
 
 	fgs[0] = fgs[1] = parse_color("#fff", NULL);
 	fgs[2] = parse_color("#000", NULL);
@@ -1612,11 +1666,15 @@ main(int argc, char **argv)
 	bgs[0] = bgs[1] = parse_color("#000", NULL);
 	bgs[2] = parse_color("#fff", NULL);
 
-	borders_bg[0] = borders_bg[1] = borders_bg[2] = borders_bg[3] = parse_color("#000", NULL);
+	borders_bg[0] = borders_bg[1] = borders_bg[2] = borders_bg[3]
+		= parse_color("#000", NULL);
 
-	p_borders_bg[0]  = p_borders_bg[1]  = p_borders_bg[2]  = p_borders_bg[3]  = parse_color("#000", NULL);
-	c_borders_bg[0]  = c_borders_bg[1]  = c_borders_bg[2]  = c_borders_bg[3]  = parse_color("#000", NULL);
-	ch_borders_bg[0] = ch_borders_bg[1] = ch_borders_bg[2] = ch_borders_bg[3] = parse_color("#000", NULL);
+	p_borders_bg[0] = p_borders_bg[1] = p_borders_bg[2] = p_borders_bg[3]
+		= parse_color("#000", NULL);
+	c_borders_bg[0] = c_borders_bg[1] = c_borders_bg[2] = c_borders_bg[3]
+		= parse_color("#000", NULL);
+	ch_borders_bg[0] = ch_borders_bg[1] = ch_borders_bg[2]
+		= ch_borders_bg[3] = parse_color("#000", NULL);
 
 	r.horizontal_layout = 1;
 
@@ -1630,177 +1688,278 @@ main(int argc, char **argv)
 
 		xdb = XrmGetStringDatabase(xrm);
 
-		if (XrmGetResource(xdb, "MyMenu.font", "*", datatype, &value) == 1) {
+		if (XrmGetResource(xdb, "MyMenu.font", "*", datatype, &value)
+			== 1) {
 			free(fontname);
 			fontname = strdup(value.addr);
 			check_allocation(fontname);
 		} else {
-			fprintf(stderr, "no font defined, using %s\n", fontname);
+			fprintf(stderr, "no font defined, using %s\n",
+				fontname);
 		}
 
-		if (XrmGetResource(xdb, "MyMenu.layout", "*", datatype, &value) == 1)
-			r.horizontal_layout = !strcmp(value.addr, "horizontal");
+		if (XrmGetResource(
+			    xdb, "MyMenu.layout", "*", datatype, &value)
+			== 1)
+			r.horizontal_layout
+				= !strcmp(value.addr, "horizontal");
 		else
-			fprintf(stderr, "no layout defined, using horizontal\n");
+			fprintf(stderr,
+				"no layout defined, using horizontal\n");
 
-		if (XrmGetResource(xdb, "MyMenu.prompt", "*", datatype, &value) == 1) {
+		if (XrmGetResource(
+			    xdb, "MyMenu.prompt", "*", datatype, &value)
+			== 1) {
 			free(r.ps1);
 			r.ps1 = normalize_str(value.addr);
 		} else {
-			fprintf(stderr, "no prompt defined, using \"%s\" as default\n", r.ps1);
+			fprintf(stderr,
+				"no prompt defined, using \"%s\" as "
+				"default\n",
+				r.ps1);
 		}
 
-		if (XrmGetResource(xdb, "MyMenu.prompt.border.size", "*", datatype, &value) == 1) {
+		if (XrmGetResource(xdb, "MyMenu.prompt.border.size", "*",
+			    datatype, &value)
+			== 1) {
 			char **sizes;
 			sizes = parse_csslike(value.addr);
 			if (sizes != NULL)
 				for (i = 0; i < 4; ++i)
-					r.p_borders[i] = parse_integer(sizes[i], 0);
+					r.p_borders[i]
+						= parse_integer(sizes[i], 0);
 			else
-				fprintf(stderr, "error while parsing MyMenu.prompt.border.size");
+				fprintf(stderr,
+					"error while parsing "
+					"MyMenu.prompt.border.size");
 		}
 
-		if (XrmGetResource(xdb, "MyMenu.prompt.border.color", "*", datatype, &value) == 1) {
+		if (XrmGetResource(xdb, "MyMenu.prompt.border.color", "*",
+			    datatype, &value)
+			== 1) {
 			char **colors;
 			colors = parse_csslike(value.addr);
 			if (colors != NULL)
 				for (i = 0; i < 4; ++i)
-					p_borders_bg[i] = parse_color(colors[i], "#000");
+					p_borders_bg[i] = parse_color(
+						colors[i], "#000");
 			else
-				fprintf(stderr, "error while parsing MyMenu.prompt.border.color");
+				fprintf(stderr,
+					"error while parsing "
+					"MyMenu.prompt.border.color");
 		}
 
-		if (XrmGetResource(xdb, "MyMenu.prompt.padding", "*", datatype, &value) == 1) {
+		if (XrmGetResource(xdb, "MyMenu.prompt.padding", "*",
+			    datatype, &value)
+			== 1) {
 			char **colors;
 			colors = parse_csslike(value.addr);
 			if (colors != NULL)
 				for (i = 0; i < 4; ++i)
-					r.p_padding[i] = parse_integer(colors[i], 0);
+					r.p_padding[i]
+						= parse_integer(colors[i], 0);
 			else
-				fprintf(stderr, "error while parsing MyMenu.prompt.padding");
+				fprintf(stderr,
+					"error while parsing "
+					"MyMenu.prompt.padding");
 		}
 
-		if (XrmGetResource(xdb, "MyMenu.width", "*", datatype, &value) == 1)
-			r.width = parse_int_with_percentage(value.addr, r.width, d_width);
+		if (XrmGetResource(xdb, "MyMenu.width", "*", datatype, &value)
+			== 1)
+			r.width = parse_int_with_percentage(
+				value.addr, r.width, d_width);
 		else
-			fprintf(stderr, "no width defined, using %d\n", r.width);
+			fprintf(stderr, "no width defined, using %d\n",
+				r.width);
 
-		if (XrmGetResource(xdb, "MyMenu.height", "*", datatype, &value) == 1)
-			r.height = parse_int_with_percentage(value.addr, r.height, d_height);
+		if (XrmGetResource(
+			    xdb, "MyMenu.height", "*", datatype, &value)
+			== 1)
+			r.height = parse_int_with_percentage(
+				value.addr, r.height, d_height);
 		else
-			fprintf(stderr, "no height defined, using %d\n", r.height);
+			fprintf(stderr, "no height defined, using %d\n",
+				r.height);
 
-		if (XrmGetResource(xdb, "MyMenu.x", "*", datatype, &value) == 1)
-			x = parse_int_with_pos(value.addr, x, d_width, r.width);
+		if (XrmGetResource(xdb, "MyMenu.x", "*", datatype, &value)
+			== 1)
+			x = parse_int_with_pos(
+				value.addr, x, d_width, r.width);
 
-		if (XrmGetResource(xdb, "MyMenu.y", "*", datatype, &value) == 1)
-			y = parse_int_with_pos(value.addr, y, d_height, r.height);
+		if (XrmGetResource(xdb, "MyMenu.y", "*", datatype, &value)
+			== 1)
+			y = parse_int_with_pos(
+				value.addr, y, d_height, r.height);
 
-		if (XrmGetResource(xdb, "MyMenu.border.size", "*", datatype, &value) == 1) {
+		if (XrmGetResource(
+			    xdb, "MyMenu.border.size", "*", datatype, &value)
+			== 1) {
 			char **borders;
 			borders = parse_csslike(value.addr);
 			if (borders != NULL)
 				for (i = 0; i < 4; ++i)
-					r.borders[i] = parse_int_with_percentage(borders[i], 0, (i % 2) == 0 ? d_height : d_width);
+					r.borders[i]
+						= parse_int_with_percentage(
+							borders[i], 0,
+							(i % 2) == 0
+								? d_height
+								: d_width);
 			else
-				fprintf(stderr, "error while parsing MyMenu.border.size\n");
+				fprintf(stderr,
+					"error while parsing "
+					"MyMenu.border.size\n");
 		}
 
 		/* Prompt */
-		if (XrmGetResource(xdb, "MyMenu.prompt.foreground", "*", datatype, &value) == 1)
+		if (XrmGetResource(xdb, "MyMenu.prompt.foreground", "*",
+			    datatype, &value)
+			== 1)
 			fgs[0] = parse_color(value.addr, "#fff");
 
-		if (XrmGetResource(xdb, "MyMenu.prompt.background", "*", datatype, &value) == 1)
+		if (XrmGetResource(xdb, "MyMenu.prompt.background", "*",
+			    datatype, &value)
+			== 1)
 			bgs[0] = parse_color(value.addr, "#000");
 
 		/* Completions */
-		if (XrmGetResource(xdb, "MyMenu.completion.foreground", "*", datatype, &value) == 1)
+		if (XrmGetResource(xdb, "MyMenu.completion.foreground", "*",
+			    datatype, &value)
+			== 1)
 			fgs[1] = parse_color(value.addr, "#fff");
 
-		if (XrmGetResource(xdb, "MyMenu.completion.background", "*", datatype, &value) == 1)
+		if (XrmGetResource(xdb, "MyMenu.completion.background", "*",
+			    datatype, &value)
+			== 1)
 			bgs[1] = parse_color(value.addr, "#000");
 
-		if (XrmGetResource(xdb, "MyMenu.completion.padding", "*", datatype, &value) == 1) {
+		if (XrmGetResource(xdb, "MyMenu.completion.padding", "*",
+			    datatype, &value)
+			== 1) {
 			char **paddings;
 			paddings = parse_csslike(value.addr);
 			if (paddings != NULL)
 				for (i = 0; i < 4; ++i)
-					r.c_padding[i] = parse_integer(paddings[i], 0);
+					r.c_padding[i] = parse_integer(
+						paddings[i], 0);
 			else
-				fprintf(stderr, "Error while parsing MyMenu.completion.padding");
+				fprintf(stderr,
+					"Error while parsing "
+					"MyMenu.completion.padding");
 		}
 
-		if (XrmGetResource(xdb, "MyMenu.completion.border.size", "*", datatype, &value) == 1) {
+		if (XrmGetResource(xdb, "MyMenu.completion.border.size", "*",
+			    datatype, &value)
+			== 1) {
 			char **sizes;
 			sizes = parse_csslike(value.addr);
 			if (sizes != NULL)
 				for (i = 0; i < 4; ++i)
-					r.c_borders[i] = parse_integer(sizes[i], 0);
+					r.c_borders[i]
+						= parse_integer(sizes[i], 0);
 			else
-				fprintf(stderr, "Error while parsing MyMenu.completion.border.size");
+				fprintf(stderr,
+					"Error while parsing "
+					"MyMenu.completion.border.size");
 		}
 
-		if (XrmGetResource(xdb, "MyMenu.completion.border.color", "*", datatype, &value) == 1) {
+		if (XrmGetResource(xdb, "MyMenu.completion.border.color", "*",
+			    datatype, &value)
+			== 1) {
 			char **sizes;
 			sizes = parse_csslike(value.addr);
 			if (sizes != NULL)
 				for (i = 0; i < 4; ++i)
-					c_borders_bg[i] = parse_color(sizes[i], "#000");
+					c_borders_bg[i] = parse_color(
+						sizes[i], "#000");
 			else
-				fprintf(stderr, "Error while parsing MyMenu.completion.border.color");
+				fprintf(stderr,
+					"Error while parsing "
+					"MyMenu.completion.border.color");
 		}
 
 		/* Completion Highlighted */
-		if (XrmGetResource(xdb, "MyMenu.completion_highlighted.foreground", "*", datatype, &value) == 1)
+		if (XrmGetResource(xdb,
+			    "MyMenu.completion_highlighted.foreground", "*",
+			    datatype, &value)
+			== 1)
 			fgs[2] = parse_color(value.addr, "#000");
 
-		if (XrmGetResource(xdb, "MyMenu.completion_highlighted.background", "*", datatype, &value) == 1)
+		if (XrmGetResource(xdb,
+			    "MyMenu.completion_highlighted.background", "*",
+			    datatype, &value)
+			== 1)
 			bgs[2] = parse_color(value.addr, "#fff");
 
-		if (XrmGetResource(xdb, "MyMenu.completion_highlighted.padding", "*", datatype, &value) == 1) {
+		if (XrmGetResource(xdb,
+			    "MyMenu.completion_highlighted.padding", "*",
+			    datatype, &value)
+			== 1) {
 			char **paddings;
 			paddings = parse_csslike(value.addr);
 			if (paddings != NULL)
 				for (i = 0; i < 4; ++i)
-					r.ch_padding[i] = parse_integer(paddings[i], 0);
+					r.ch_padding[i] = parse_integer(
+						paddings[i], 0);
 			else
-				fprintf(stderr, "Error while parsing MyMenu.completion_highlighted.padding");
+				fprintf(stderr,
+					"Error while parsing "
+					"MyMenu.completion_highlighted."
+					"padding");
 		}
 
-		if (XrmGetResource(xdb, "MyMenu.completion_highlighted.border.size", "*", datatype, &value) == 1) {
+		if (XrmGetResource(xdb,
+			    "MyMenu.completion_highlighted.border.size", "*",
+			    datatype, &value)
+			== 1) {
 			char **sizes;
 			sizes = parse_csslike(value.addr);
 			if (sizes != NULL)
 				for (i = 0; i < 4; ++i)
-					r.ch_borders[i] = parse_integer(sizes[i], 0);
+					r.ch_borders[i]
+						= parse_integer(sizes[i], 0);
 			else
-				fprintf(stderr, "Error while parsing MyMenu.completion_highlighted.border.size");
+				fprintf(stderr,
+					"Error while parsing "
+					"MyMenu.completion_highlighted."
+					"border.size");
 		}
 
-		if (XrmGetResource(xdb, "MyMenu.completion_highlighted.border.color", "*", datatype, &value) == 1) {
+		if (XrmGetResource(xdb,
+			    "MyMenu.completion_highlighted.border.color", "*",
+			    datatype, &value)
+			== 1) {
 			char **colors;
 			colors = parse_csslike(value.addr);
 			if (colors != NULL)
 				for (i = 0; i < 4; ++i)
-					ch_borders_bg[i] = parse_color(colors[i], "#000");
+					ch_borders_bg[i] = parse_color(
+						colors[i], "#000");
 			else
-				fprintf(stderr, "Error while parsing MyMenu.completion_highlighted.border.color");
+				fprintf(stderr,
+					"Error while parsing "
+					"MyMenu.completion_highlighted."
+					"border.color");
 		}
 
 		/* Border */
-		if (XrmGetResource(xdb, "MyMenu.border.color", "*", datatype, &value) == 1) {
+		if (XrmGetResource(
+			    xdb, "MyMenu.border.color", "*", datatype, &value)
+			== 1) {
 			char **colors;
 			colors = parse_csslike(value.addr);
 			if (colors != NULL)
 				for (i = 0; i < 4; ++i)
-					borders_bg[i] = parse_color(colors[i], "#000");
+					borders_bg[i] = parse_color(
+						colors[i], "#000");
 			else
-				fprintf(stderr, "error while parsing MyMenu.border.color\n");
+				fprintf(stderr,
+					"error while parsing "
+					"MyMenu.border.color\n");
 		}
 	}
 
 	/* Second round of args parsing */
-	optind = 0;		/* reset the option index */
+	optind = 0; /* reset the option index */
 	while ((ch = getopt(argc, argv, ARGS)) != -1) {
 		switch (ch) {
 		case 'a':
@@ -1813,7 +1972,8 @@ main(int argc, char **argv)
 		case 'e':
 			/* embedding mymenu this case was already catched. */
 		case 'm':
-			/* multiple selection this case was already catched. */
+			/* multiple selection this case was already catched.
+			 */
 			break;
 		case 'p': {
 			char *newprompt;
@@ -1834,49 +1994,56 @@ main(int argc, char **argv)
 			char **paddings;
 			if ((paddings = parse_csslike(optarg)) != NULL)
 				for (i = 0; i < 4; ++i)
-					r.p_padding[i] = parse_integer(paddings[i], 0);
+					r.p_padding[i] = parse_integer(
+						paddings[i], 0);
 			break;
 		}
 		case 'G': {
 			char **colors;
 			if ((colors = parse_csslike(optarg)) != NULL)
 				for (i = 0; i < 4; ++i)
-					p_borders_bg[i] = parse_color(colors[i], "#000");
+					p_borders_bg[i] = parse_color(
+						colors[i], "#000");
 			break;
 		}
 		case 'g': {
 			char **sizes;
 			if ((sizes = parse_csslike(optarg)) != NULL)
 				for (i = 0; i < 4; ++i)
-					r.p_borders[i] = parse_integer(sizes[i], 0);
+					r.p_borders[i]
+						= parse_integer(sizes[i], 0);
 			break;
 		}
 		case 'I': {
 			char **colors;
 			if ((colors = parse_csslike(optarg)) != NULL)
 				for (i = 0; i < 4; ++i)
-					c_borders_bg[i] = parse_color(colors[i], "#000");
+					c_borders_bg[i] = parse_color(
+						colors[i], "#000");
 			break;
 		}
 		case 'i': {
 			char **sizes;
 			if ((sizes = parse_csslike(optarg)) != NULL)
 				for (i = 0; i < 4; ++i)
-					r.c_borders[i] = parse_integer(sizes[i], 0);
+					r.c_borders[i]
+						= parse_integer(sizes[i], 0);
 			break;
 		}
 		case 'J': {
 			char **colors;
 			if ((colors = parse_csslike(optarg)) != NULL)
 				for (i = 0; i < 4; ++i)
-					ch_borders_bg[i] = parse_color(colors[i], "#000");
+					ch_borders_bg[i] = parse_color(
+						colors[i], "#000");
 			break;
 		}
 		case 'j': {
 			char **sizes;
 			if ((sizes = parse_csslike(optarg)) != NULL)
 				for (i = 0; i < 4; ++i)
-					r.ch_borders[i] = parse_integer(sizes[i], 0);
+					r.ch_borders[i]
+						= parse_integer(sizes[i], 0);
 			break;
 		}
 		case 'l':
@@ -1891,16 +2058,19 @@ main(int argc, char **argv)
 			break;
 		}
 		case 'W':
-			r.width = parse_int_with_percentage(optarg, r.width, d_width);
+			r.width = parse_int_with_percentage(
+				optarg, r.width, d_width);
 			break;
 		case 'H':
-			r.height = parse_int_with_percentage(optarg, r.height, d_height);
+			r.height = parse_int_with_percentage(
+				optarg, r.height, d_height);
 			break;
 		case 'b': {
 			char **borders;
 			if ((borders = parse_csslike(optarg)) != NULL) {
 				for (i = 0; i < 4; ++i)
-					r.borders[i] = parse_integer(borders[i], 0);
+					r.borders[i] = parse_integer(
+						borders[i], 0);
 			} else
 				fprintf(stderr, "Error parsing b option\n");
 			break;
@@ -1909,9 +2079,11 @@ main(int argc, char **argv)
 			char **colors;
 			if ((colors = parse_csslike(optarg)) != NULL) {
 				for (i = 0; i < 4; ++i)
-					borders_bg[i] = parse_color(colors[i], "#000");
+					borders_bg[i] = parse_color(
+						colors[i], "#000");
 			} else
-				fprintf(stderr, "error while parsing B option\n");
+				fprintf(stderr,
+					"error while parsing B option\n");
 			break;
 		}
 		case 't':
@@ -1948,23 +2120,29 @@ main(int argc, char **argv)
 	 * update the completion here */
 	update_completions(cs, text, lines, vlines, r.first_selected);
 
-	/* update the prompt lenght, only now we surely know the length of it */
+	/* update the prompt lenght, only now we surely know the length of it
+	 */
 	r.ps1len = strlen(r.ps1);
 
 	/* Create the window */
-	create_window(&r, parent_window, cmap, vinfo, x, y, offset_x, offset_y, bgs[1]);
+	create_window(&r, parent_window, cmap, vinfo, x, y, offset_x,
+		offset_y, bgs[1]);
 	set_win_atoms_hints(r.d, r.w, r.width, r.height);
 	XMapRaised(r.d, r.w);
 
 	/* If embed, listen for other events as well */
 	if (embed) {
-		Window		*children, parent, root;
-		unsigned int	children_no;
+		Window *children, parent, root;
+		unsigned int children_no;
 
 		XSelectInput(r.d, parent_window, FocusChangeMask);
-		if (XQueryTree(r.d, parent_window, &root, &parent, &children, &children_no) && children) {
-			for (i = 0; i < children_no && children[i] != r.w; ++i)
-				XSelectInput(r.d, children[i], FocusChangeMask);
+		if (XQueryTree(r.d, parent_window, &root, &parent, &children,
+			    &children_no)
+			&& children) {
+			for (i = 0; i < children_no && children[i] != r.w;
+				++i)
+				XSelectInput(
+					r.d, children[i], FocusChangeMask);
 			XFree(children);
 		}
 		grabfocus(r.d, r.w);
@@ -1976,7 +2154,7 @@ main(int argc, char **argv)
 	r.y_zero = r.borders[0];
 
 	{
-		XGCValues	values;
+		XGCValues values;
 
 		for (i = 0; i < 3; ++i) {
 			r.fgs[i] = XCreateGC(r.d, r.w, 0, &values);
@@ -2011,15 +2189,16 @@ main(int argc, char **argv)
 	r.xftdraw = XftDrawCreate(r.d, r.w, vinfo.visual, cmap);
 
 	for (i = 0; i < 3; ++i) {
-		rgba_t		c;
-		XRenderColor	xrcolor;
+		rgba_t c;
+		XRenderColor xrcolor;
 
-		c = *(rgba_t*)&fgs[i];
-		xrcolor.red          = EXPANDBITS(c.rgba.r);
-		xrcolor.green        = EXPANDBITS(c.rgba.g);
-		xrcolor.blue         = EXPANDBITS(c.rgba.b);
-		xrcolor.alpha        = EXPANDBITS(c.rgba.a);
-		XftColorAllocValue(r.d, vinfo.visual, cmap, &xrcolor, &r.xft_colors[i]);
+		c = *(rgba_t *)&fgs[i];
+		xrcolor.red = EXPANDBITS(c.rgba.r);
+		xrcolor.green = EXPANDBITS(c.rgba.g);
+		xrcolor.blue = EXPANDBITS(c.rgba.b);
+		xrcolor.alpha = EXPANDBITS(c.rgba.a);
+		XftColorAllocValue(
+			r.d, vinfo.visual, cmap, &xrcolor, &r.xft_colors[i]);
 	}
 #endif
 
