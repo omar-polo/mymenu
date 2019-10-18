@@ -113,7 +113,7 @@ path=`echo $PATH | sed 's/:/ /g'`
 
 {
     for i in $path; do
-        ls -F $i | grep '.*\*$' | sed 's/\*//'
+        ls -F $i | sed -n 's/\*$//p'
     done
 } | sort -f | /bin/sh -c "$(mymenu "$@")"
 ```
