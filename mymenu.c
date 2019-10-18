@@ -1036,7 +1036,7 @@ parse_int_with_pos(const char *str, int default_value, int max, int self)
 {
 	if (!strcmp(str, "start"))
 		return 0;
-	if (!strcmp(str, "middle"))
+	if (!strcmp(str, "middle") || !strcmp(str, "center"))
 		return (max - self) / 2;
 	if (!strcmp(str, "end"))
 		return max - self;

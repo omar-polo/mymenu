@@ -238,7 +238,7 @@ MyMenu.x
 
 > > Alias for 0;
 
-> middle
+> middle or center
 
 > > Compute the correct value to make sure that mymenu will be
 > > horizontally centered;
@@ -252,7 +252,7 @@ MyMenu.y
 
 > The Y coordinate of the topmost left corner of the window. Like the X
 > coordinate a pixel dimension, percentage dimension or the special
-> value "start", "middle", "end" could be supplied.
+> value "start", "middle"/"center", "end" could be supplied.
 
 MyMenu.border.size
 
@@ -456,4 +456,4 @@ Omar Polo &lt;omar.polo@europecom.net&gt;
 	height of the window, remember to override the x and y coordinates as
 	well.
 
-OpenBSD 6.4 - October 17, 2018
+Void Linux - October 18, 2019
