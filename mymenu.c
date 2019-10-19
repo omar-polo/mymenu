@@ -1221,10 +1221,9 @@ select_clicked(
 
 	/* skip the first entry */
 	for (selected += 1; selected < cs->length; ++selected) {
-		if (cs->completions[selected].offset == -1) {
-			printf("caught -1\n");
+		if (cs->completions[selected].offset == -1)
 			break;
-		}
+
 		if (offset < cs->completions[selected].offset) {
 			cs->selected = selected - 1;
 			set = 1;
