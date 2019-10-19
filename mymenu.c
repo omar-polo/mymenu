@@ -1,4 +1,5 @@
 #include <ctype.h> /* isalnum */
+#include <err.h>
 #include <errno.h>
 #include <limits.h>
 #include <locale.h> /* setlocale */
@@ -58,15 +59,6 @@
 
 /* The number of lines to allocate in advance */
 #define LINES_CHUNK 64
-
-/* Abort on NULL */
-#define check_allocation(a)                                                  \
-	{                                                                    \
-		if (a == NULL) {                                             \
-			fprintf(stderr, "Could not allocate memory\n");      \
-			abort();                                             \
-		}                                                            \
-	}
 
 #define inner_height(r) (r->height - r->borders[0] - r->borders[2])
 #define inner_width(r) (r->width - r->borders[1] - r->borders[3])
@@ -393,8 +385,8 @@ normalize_str(const char *str)
 	if ((len = strlen(str)) == 0)
 		return NULL;
 
-	s = calloc(len, sizeof(char));
-	check_allocation(s);
+	if ((s = calloc(len, sizeof(char))) == NULL)
+		err(1, "calloc");
 	p = 0;
 
 	while (*str) {
@@ -1014,8 +1006,9 @@ parse_int_with_percentage(const char *str, int default_value, int max)
 		int val;
 		char *cpy;
 
-		cpy = strdup(str);
-		check_allocation(cpy);
+		if ((cpy = strdup(str)) == NULL)
+			err(1, "strdup");
+
 		cpy[len - 1] = '\0';
 		val = parse_integer(cpy, default_value);
 		free(cpy);
@@ -1390,8 +1383,8 @@ xim_init(struct rendering *r, XrmDatabase *xdb)
 	int i;
 
 	/* Open the X input method */
-	r->xim = XOpenIM(r->d, *xdb, resname, resclass);
-	check_allocation(r->xim);
+	if ((r->xim = XOpenIM(r->d, *xdb, resname, resclass)) == NULL)
+		err(1, "XOpenIM");
 
 	if (XGetIMValues(r->xim, XNQueryInputStyle, &xis, NULL) || !xis) {
 		fprintf(stderr, "Input Styles could not be retrieved\n");
@@ -1414,7 +1407,8 @@ xim_init(struct rendering *r, XrmDatabase *xdb)
 
 	r->xic = XCreateIC(r->xim, XNInputStyle, best_match_style,
 		XNClientWindow, r->w, XNFocusWindow, r->w, NULL);
-	check_allocation(r->xic);
+	if (r->xic == NULL)
+		err(1, "XCreateIC");
 }
 
 void
@@ -1509,12 +1503,13 @@ main(int argc, char **argv)
 			fprintf(stderr, "%s version: %s\n", *argv, VERSION);
 			return 0;
 		case 'e': /* embed */
-			parent_window_id = strdup(optarg);
-			check_allocation(parent_window_id);
+			if ((parent_window_id = strdup(optarg)) == NULL)
+				err(1, "strdup");
 			break;
 		case 'd':
-			sep = strdup(optarg);
-			check_allocation(sep);
+			if ((sep = strdup(optarg)) == NULL)
+				err(1, "strdup");
+			break;
 		case 'A':
 			r.free_text = 0;
 			break;
@@ -1535,8 +1530,8 @@ main(int argc, char **argv)
 	if (sep != NULL) {
 		int l;
 		l = strlen(sep);
-		vlines = calloc(nlines, sizeof(char *));
-		check_allocation(vlines);
+		if ((vlines = calloc(nlines, sizeof(char *))) == NULL)
+			err(1, "calloc");
 
 		for (i = 0; i < nlines; i++) {
 			char *t;
@@ -1577,20 +1572,20 @@ main(int argc, char **argv)
 
 	/* the prompt. We duplicate the string so later is easy to
 	 * free (in the case it's been overwritten by the user) */
-	r.ps1 = strdup("$ ");
-	check_allocation(r.ps1);
+	if ((r.ps1 = strdup("$ ")) == NULL)
+		err(1, "strdup");
 
 	/* same for the font name */
-	fontname = strdup(default_fontname);
-	check_allocation(fontname);
+	if ((fontname = strdup(default_fontname)) == NULL)
+		err(1, "strdup");
 
 	textlen = 10;
-	text = malloc(textlen * sizeof(char));
-	check_allocation(text);
+	if ((text = malloc(textlen * sizeof(char))) == NULL)
+		err(1, "malloc");
 
 	/* struct completions *cs = filter(text, lines); */
-	cs = compls_new(nlines);
-	check_allocation(cs);
+	if ((cs = compls_new(nlines)) == NULL)
+		err(1, "compls_new");
 
 	/* start talking to xorg */
 	r.d = XOpenDisplay(NULL);
@@ -1691,8 +1686,8 @@ main(int argc, char **argv)
 		if (XrmGetResource(xdb, "MyMenu.font", "*", datatype, &value)
 			== 1) {
 			free(fontname);
-			fontname = strdup(value.addr);
-			check_allocation(fontname);
+			if ((fontname = strdup(value.addr)) == NULL)
+				err(1, "strdup");
 		} else {
 			fprintf(stderr, "no font defined, using %s\n",
 				fontname);
