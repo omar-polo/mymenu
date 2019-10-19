@@ -265,6 +265,12 @@ you've typed ``fire'' and the first completion is ``firefox'' but you
 really want to choose ``fire''. While you can type some spaces, this
 keybinding is a more elegant way to change, at runtime, the behaviour
 of the first completion.
+.It Button1
+Confirm the clicked item
+.It Button3
+Confirm but keep looping (if enabled) the clicked item, like C-m
+.It Button4,Button5 / scroll
+Scroll through the completions (without changing the selection)
 .El
 .Sh EXIT STATUS
 0 when the user select an entry, 1 when the user press Esc, EX_USAGE
@@ -321,4 +327,6 @@ centered.
 As a general rule of thumb, if you're overriding the width and/or the
 height of the window, remember to override the x and y coordinates as
 well.
+.It
+Clicking past the last item will be equivalent to clicking the last item.
 .El

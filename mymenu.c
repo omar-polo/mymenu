@@ -74,6 +74,7 @@ enum obj_type { PROMPT, COMPL, COMPL_HIGH };
 
 /* These are the possible action to be performed after user input. */
 enum action {
+	NO_OP,
 	EXIT,
 	CONFIRM,
 	CONFIRM_CONTINUE,
@@ -83,11 +84,13 @@ enum action {
 	DEL_WORD,
 	DEL_LINE,
 	ADD_CHAR,
-	TOGGLE_FIRST_SELECTED
+	TOGGLE_FIRST_SELECTED,
+	SCROLL_DOWN,
+	SCROLL_UP,
 };
 
 /* A big set of values that needs to be carried around for drawing. A
-big struct to rule them all */
+ * big struct to rule them all */
 struct rendering {
 	Display *d; /* Connection to xorg */
 	Window w;
@@ -101,7 +104,7 @@ struct rendering {
 		       the borders) */
 	int y_zero; /* like x_zero but for the y axis */
 
-	size_t offset; /* scroll offset */
+	int offset; /* scroll offset */
 
 	short free_text;
 	short first_selected;
@@ -144,6 +147,8 @@ struct rendering {
 struct completion {
 	char *completion;
 	char *rcompletion;
+	int offset; /* the x (or y, depending on the layout) coordinate at
+		       which the item is rendered */
 };
 
 /* Wrap the linked list of completions */
@@ -743,12 +748,17 @@ draw_horizontally(struct rendering *r, char *text, struct completions *cs)
 		enum obj_type t
 			= cs->selected == (ssize_t)i ? COMPL_HIGH : COMPL;
 
+		cs->completions[i].offset = x;
+
 		x += draw_h_box(
 			r, x, NULL, 0, t, cs->completions[i].completion);
 
 		if (x > inner_width(r))
 			break;
 	}
+
+	for (i += 1; i < cs->length; ++i)
+		cs->completions[i].offset = -1;
 }
 
 /* ,-----------------------------------------------------------------, */
@@ -770,12 +780,17 @@ draw_vertically(struct rendering *r, char *text, struct completions *cs)
 		enum obj_type t
 			= cs->selected == (ssize_t)i ? COMPL_HIGH : COMPL;
 
+		cs->completions[i].offset = y;
+
 		y += draw_v_box(
 			r, y, NULL, 0, t, cs->completions[i].completion);
 
 		if (y > inner_height(r))
 			break;
 	}
+
+	for (i += 1; i < cs->length; ++i)
+		cs->completions[i].offset = -1;
 }
 
 void
@@ -1186,6 +1201,71 @@ confirm(enum state *status, struct rendering *r, struct completions *cs,
 		*status = LOOPING;
 }
 
+/* cs: completion list
+ * offset: the offset of the click
+ * first: the first (rendered) item
+ * def: the default action
+ */
+enum action
+select_clicked(
+	struct completions *cs, size_t offset, size_t first, enum action def)
+{
+	ssize_t selected = first;
+	int set = 0;
+
+	if (cs->length == 0)
+		return NO_OP;
+
+	if (offset < cs->completions[selected].offset)
+		return NO_OP;
+
+	/* skip the first entry */
+	for (selected += 1; selected < cs->length; ++selected) {
+		if (cs->completions[selected].offset == -1) {
+			printf("caught -1\n");
+			break;
+		}
+		if (offset < cs->completions[selected].offset) {
+			cs->selected = selected - 1;
+			set = 1;
+			break;
+		}
+	}
+
+	if (!set)
+		cs->selected = selected - 1;
+
+	return def;
+}
+
+enum action
+handle_mouse(
+	struct rendering *r, struct completions *cs, XButtonPressedEvent *e)
+{
+	size_t off;
+
+	if (r->horizontal_layout)
+		off = e->x;
+	else
+		off = e->y;
+
+	switch (e->button) {
+	case Button1:
+		return select_clicked(cs, off, r->offset, CONFIRM);
+
+	case Button3:
+		return select_clicked(cs, off, r->offset, CONFIRM_CONTINUE);
+
+	case Button4:
+		return SCROLL_UP;
+
+	case Button5:
+		return SCROLL_DOWN;
+	}
+
+	return NO_OP;
+}
+
 /* event loop */
 enum state
 loop(struct rendering *r, char **text, int *textlen, struct completions *cs,
@@ -1221,11 +1301,22 @@ loop(struct rendering *r, char **text, int *textlen, struct completions *cs,
 			draw(r, *text, cs);
 			break;
 
-		case KeyPress: {
-			XKeyPressedEvent *ev = (XKeyPressedEvent *)&e;
-			char *input;
+		case KeyPress:
+		case ButtonPress: {
+			enum action a;
+			char *input = NULL;
 
-			switch (parse_event(r->d, ev, r->xic, &input)) {
+			if (e.type == KeyPress)
+				a = parse_event(r->d, (XKeyPressedEvent *)&e,
+					r->xic, &input);
+			else
+				a = handle_mouse(
+					r, cs, (XButtonPressedEvent *)&e);
+
+			switch (a) {
+			case NO_OP:
+				break;
+
 			case EXIT:
 				status = ERR;
 				break;
@@ -1323,25 +1414,16 @@ loop(struct rendering *r, char **text, int *textlen, struct completions *cs,
 				if (!r->first_selected && cs->selected == 0)
 					cs->selected = -1;
 				break;
-			}
-		}
 
-		case ButtonPress: {
-			XButtonPressedEvent *ev = (XButtonPressedEvent *)&e;
-			/* if (ev->button == Button1) { /\* click *\/ */
-			/*   int x = ev->x - r.border_w; */
-			/*   int y = ev->y - r.border_n; */
-			/*   fprintf(stderr, "Click @ (%d, %d)\n", x, y); */
-			/* } */
-
-			if (ev->button == Button4) /* scroll up */
-				r->offset = MAX((ssize_t)r->offset - 1, 0);
-
-			if (ev->button == Button5) /* scroll down */
+			case SCROLL_DOWN:
 				r->offset
 					= MIN(r->offset + 1, cs->length - 1);
+				break;
 
-			break;
+			case SCROLL_UP:
+				r->offset = MAX((ssize_t)r->offset - 1, 0);
+				break;
+			}
 		}
 		}
 

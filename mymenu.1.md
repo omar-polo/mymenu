@@ -401,6 +401,18 @@ C-i
 > keybinding is a more elegant way to change, at runtime, the behaviour
 > of the first completion.
 
+Button1
+
+> Confirm the clicked item
+
+Button3
+
+> Confirm but keep looping (if enabled) the clicked item, like C-m
+
+Button4,Button5 / scroll
+
+> Scroll through the completions (without changing the selection)
+
 # EXIT STATUS
 
 0 when the user select an entry, 1 when the user press Esc, EX\_USAGE
@@ -456,4 +468,4 @@ Omar Polo &lt;omar.polo@europecom.net&gt;
 	height of the window, remember to override the x and y coordinates as
 	well.
 
-Void Linux - October 18, 2019
+Void Linux - October 19, 2019
