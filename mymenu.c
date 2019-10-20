@@ -1218,7 +1218,7 @@ select_clicked(struct completions *cs, size_t offset, size_t first, enum action 
 		return NO_OP;
 
 	if (offset < cs->completions[selected].offset)
-		return NO_OP;
+		return EXIT;
 
 	/* skip the first entry */
 	for (selected += 1; selected < cs->length; ++selected) {

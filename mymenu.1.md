@@ -407,11 +407,13 @@ C-i
 
 Button1
 
-> Confirm the clicked item
+> Clicking on the prompt area closes mymenu, clicking on an item will
+> confirm it.
 
 Button3
 
-> Confirm but keep looping (if enabled) the clicked item, like C-m
+> Clicking on the prompt area closes mymenu, clicking on an item will
+> confirm but keep looping (if enabled) the clicked item, like C-m
 
 Button4,Button5 / scroll
 
