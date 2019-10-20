@@ -1033,15 +1033,36 @@ parse_int_with_percentage(const char *str, int default_value, int max)
 	return parse_integer(str, default_value);
 }
 
+void
+get_mouse_coords(Display *d, int *x, int *y)
+{
+	Window w, root;
+	int i;
+	unsigned int u;
+
+	*x = *y = 0;
+	root = DefaultRootWindow(d);
+
+	if (!XQueryPointer(d, root, &root, &w, x, y, &i, &i, &u)) {
+		for (i = 0; i < ScreenCount(d); ++i) {
+			if (root == RootWindow(d, i))
+				break;
+		}
+	}
+}
+
 /*
  * Like parse_int_with_percentage but understands some special values:
  * - middle that is (max-self)/2
  * - center = middle
  * - start  that is 0
  * - end    that is (max-self)
+ * - mx     x coordinate of the mouse
+ * - my     y coordinate of the mouse
  */
 int
-parse_int_with_pos(const char *str, int default_value, int max, int self)
+parse_int_with_pos(
+	Display *d, const char *str, int default_value, int max, int self)
 {
 	if (!strcmp(str, "start"))
 		return 0;
@@ -1049,6 +1070,15 @@ parse_int_with_pos(const char *str, int default_value, int max, int self)
 		return (max - self) / 2;
 	if (!strcmp(str, "end"))
 		return max - self;
+	if (!strcmp(str, "mx") || !strcmp(str, "my")) {
+		int x, y;
+
+		get_mouse_coords(d, &x, &y);
+		if (!strcmp(str, "mx"))
+			return x;
+		else
+			return y;
+	}
 	return parse_int_with_percentage(str, default_value, max);
 }
 
@@ -1861,12 +1891,12 @@ main(int argc, char **argv)
 		if (XrmGetResource(xdb, "MyMenu.x", "*", datatype, &value)
 			== 1)
 			x = parse_int_with_pos(
-				value.addr, x, d_width, r.width);
+				r.d, value.addr, x, d_width, r.width);
 
 		if (XrmGetResource(xdb, "MyMenu.y", "*", datatype, &value)
 			== 1)
 			y = parse_int_with_pos(
-				value.addr, y, d_height, r.height);
+				r.d, value.addr, y, d_height, r.height);
 
 		if (XrmGetResource(
 			    xdb, "MyMenu.border.size", "*", datatype, &value)
@@ -2062,10 +2092,12 @@ main(int argc, char **argv)
 			break;
 		}
 		case 'x':
-			x = parse_int_with_pos(optarg, x, d_width, r.width);
+			x = parse_int_with_pos(
+				r.d, optarg, x, d_width, r.width);
 			break;
 		case 'y':
-			y = parse_int_with_pos(optarg, y, d_height, r.height);
+			y = parse_int_with_pos(
+				r.d, optarg, y, d_height, r.height);
 			break;
 		case 'P': {
 			char **paddings;

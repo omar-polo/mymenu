@@ -248,11 +248,15 @@ MyMenu.x
 > > Compute the correct value to make sure that mymenu will be right
 > > aligned.
 
+> mx and my
+
+> > These stands for x and y coordinate of the mouse respectively.
+
 MyMenu.y
 
 > The Y coordinate of the topmost left corner of the window. Like the X
 > coordinate a pixel dimension, percentage dimension or the special
-> value "start", "middle"/"center", "end" could be supplied.
+> value "start", "middle"/"center", "end" or "mx"/"my" could be supplied.
 
 MyMenu.border.size
 
@@ -468,4 +472,6 @@ Omar Polo &lt;omar.polo@europecom.net&gt;
 	height of the window, remember to override the x and y coordinates as
 	well.
 
-Void Linux - October 19, 2019
+*	Clicking past the last item will be equivalent to clicking the last item.
+
+Void Linux - October 20, 2019
