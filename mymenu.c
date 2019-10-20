@@ -1047,9 +1047,9 @@ parse_int_with_pos(Display *d, const char *str, int default_value, int max, int 
 
 		get_mouse_coords(d, &x, &y);
 		if (!strcmp(str, "mx"))
-			return x;
+			return x - 1;
 		else
-			return y;
+			return y - 1;
 	}
 	return parse_int_with_percentage(str, default_value, max);
 }
