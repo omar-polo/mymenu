@@ -1036,6 +1036,7 @@ parse_int_with_percentage(const char *str, int default_value, int max)
 /*
  * Like parse_int_with_percentage but understands some special values:
  * - middle that is (max-self)/2
+ * - center = middle
  * - start  that is 0
  * - end    that is (max-self)
  */
