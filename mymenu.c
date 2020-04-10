@@ -2080,7 +2080,7 @@ main(int argc, char **argv)
 			fgs[2] = parse_color(optarg, NULL);
 			break;
 		case 'S':
-			fgs[2] = parse_color(optarg, NULL);
+			bgs[2] = parse_color(optarg, NULL);
 			break;
 		default:
 			fprintf(stderr, "Unrecognized option %c\n", ch);
