@@ -461,9 +461,7 @@ char *
 strdupn(char *str)
 {
 	int len, i;
-	char *dup;
-
-	len = strlen(str);
+	char *t, *dup;
 
 	if (str == NULL || len == 0)
 		return NULL;
@@ -471,9 +469,10 @@ strdupn(char *str)
 	if ((dup = strdup(str)) == NULL)
 		return NULL;
 
-	for (i = 0; i < len; ++i)
-		if (dup[i] == ' ')
-			dup[i] = 'n';
+	for (t = dup; *t; ++t) {
+		if (*t == ' ')
+			*t = 'n';
+	}
 
 	return dup;
 }
