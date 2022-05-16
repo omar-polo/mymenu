@@ -870,30 +870,21 @@ invc:
 }
 
 /*
- * Given a string try to parse it as a number or return `default_value'.
+ * Given a string try to parse it as a number or return `def'.
  */
 int
-parse_integer(const char *str, int default_value)
+parse_integer(const char *str, int def)
 {
-	long lval;
-	char *ep;
+	const char *errstr;
+	int i;
 
-	errno = 0;
-	lval = strtol(str, &ep, 10);
-
-	if (str[0] == '\0' || *ep != '\0') { /* NaN */
-		fprintf(stderr, "'%s' is not a valid number! Using %d as default.\n", str,
-			default_value);
-		return default_value;
+	i = strtonum(str, INT_MIN, INT_MAX, &errstr);
+	if (errstr != NULL) {
+		warnx("'%s' is %s; using %d as default", str, errstr, def);
+		return def;
 	}
 
-	if ((errno == ERANGE && (lval == LONG_MAX || lval == LONG_MIN))
-		|| (lval > INT_MAX || lval < INT_MIN)) {
-		fprintf(stderr, "%s out of range! Using %d as default.\n", str, default_value);
-		return default_value;
-	}
-
-	return lval;
+	return i;
 }
 
 /* Like parse_integer but recognize the percentages (i.e. strings ending with
