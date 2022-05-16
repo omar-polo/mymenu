@@ -15,14 +15,9 @@
 #include <X11/Xresource.h>
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
-
-#ifdef USE_XINERAMA
-#include <X11/extensions/Xinerama.h>
-#endif
-
-#ifdef USE_XFT
 #include <X11/Xft/Xft.h>
-#endif
+
+#include <X11/extensions/Xinerama.h>
 
 #ifndef VERSION
 #define VERSION "unknown"
@@ -33,11 +28,7 @@
 
 #define SYM_BUF_SIZE 4
 
-#ifdef USE_XFT
 #define default_fontname "monospace"
-#else
-#define default_fontname "fixed"
-#endif
 
 #define ARGS "Aahmve:p:P:l:f:W:H:x:y:b:B:t:T:c:C:s:S:d:G:g:I:i:J:j:"
 
@@ -129,13 +120,9 @@ struct rendering {
 	GC p_borders_bg[4];
 	GC c_borders_bg[4];
 	GC ch_borders_bg[4];
-#ifdef USE_XFT
 	XftFont *font;
 	XftDraw *xftdraw;
 	XftColor xft_colors[3];
-#else
-	XFontSet font;
-#endif
 };
 
 struct completion {
@@ -455,17 +442,11 @@ int
 text_extents(char *str, int len, struct rendering *r, int *ret_width, int *ret_height)
 {
 	int height, width;
-#ifdef USE_XFT
 	XGlyphInfo gi;
 	XftTextExtentsUtf8(r->d, r->font, str, len, &gi);
 	height = r->font->ascent - r->font->descent;
 	width = gi.width - gi.x;
-#else
-	XRectangle rect;
-	XmbTextExtents(r->font, str, len, NULL, &rect);
-	height = rect.height;
-	width = rect.width;
-#endif
+
 	if (ret_width != NULL)
 		*ret_width = width;
 	if (ret_height != NULL)
@@ -476,7 +457,6 @@ text_extents(char *str, int len, struct rendering *r, int *ret_width, int *ret_h
 void
 draw_string(char *str, int len, int x, int y, struct rendering *r, enum obj_type tt)
 {
-#ifdef USE_XFT
 	XftColor xftcolor;
 	if (tt == PROMPT)
 		xftcolor = r->xft_colors[0];
@@ -486,16 +466,6 @@ draw_string(char *str, int len, int x, int y, struct rendering *r, enum obj_type
 		xftcolor = r->xft_colors[2];
 
 	XftDrawStringUtf8(r->xftdraw, &xftcolor, r->font, x, y, str, len);
-#else
-	GC gc;
-	if (tt == PROMPT)
-		gc = r->fgs[0];
-	if (tt == COMPL)
-		gc = r->fgs[1];
-	if (tt == COMPL_HIGH)
-		gc = r->fgs[2];
-	Xutf8DrawString(r->d, r->w, r->font, gc, x, y, str, len);
-#endif
 }
 
 /* Duplicate the string and substitute every space with a 'n` */
@@ -1369,25 +1339,8 @@ loop(struct rendering *r, char **text, int *textlen, struct completions *cs, cha
 int
 load_font(struct rendering *r, const char *fontname)
 {
-#ifdef USE_XFT
 	r->font = XftFontOpenName(r->d, DefaultScreen(r->d), fontname);
 	return 0;
-#else
-	char **missing_charset_list;
-	int missing_charset_count;
-
-	r->font = XCreateFontSet(
-		r->d, fontname, &missing_charset_list, &missing_charset_count, NULL);
-	if (r->font != NULL)
-		return 0;
-
-	fprintf(stderr, "Unable to load the font(s) %s\n", fontname);
-
-	if (!strcmp(fontname, default_fontname))
-		return -1;
-
-	return load_font(r, default_fontname);
-#endif
 }
 
 void
@@ -1604,7 +1557,6 @@ main(int argc, char **argv)
 	/* get display size */
 	get_wh(r.d, &parent_window, &d_width, &d_height);
 
-#ifdef USE_XINERAMA
 	if (!embed && XineramaIsActive(r.d)) { /* find the mice */
 		XineramaScreenInfo *info;
 		Window rr;
@@ -1647,7 +1599,6 @@ main(int argc, char **argv)
 		}
 		XFree(info);
 	}
-#endif
 
 	XMatchVisualInfo(r.d, DefaultScreen(r.d), 32, TrueColor, &vinfo);
 	cmap = XCreateColormap(r.d, XDefaultRootWindow(r.d), vinfo.visual, AllocNone);
@@ -2093,7 +2044,6 @@ main(int argc, char **argv)
 	if (load_font(&r, fontname) == -1)
 		status = ERR;
 
-#ifdef USE_XFT
 	r.xftdraw = XftDrawCreate(r.d, r.w, vinfo.visual, cmap);
 
 	for (i = 0; i < 3; ++i) {
@@ -2107,7 +2057,6 @@ main(int argc, char **argv)
 		xrcolor.alpha = EXPANDBITS(c.rgba.a);
 		XftColorAllocValue(r.d, vinfo.visual, cmap, &xrcolor, &r.xft_colors[i]);
 	}
-#endif
 
 	/* compute prompt dimensions */
 	ps1extents(&r);
@@ -2138,10 +2087,8 @@ main(int argc, char **argv)
 
 	XUngrabKeyboard(r.d, CurrentTime);
 
-#ifdef USE_XFT
 	for (i = 0; i < 3; ++i)
 		XftColorFree(r.d, vinfo.visual, cmap, &r.xft_colors[i]);
-#endif
 
 	for (i = 0; i < 3; ++i) {
 		XFreeGC(r.d, r.fgs[i]);
@@ -2158,14 +2105,10 @@ main(int argc, char **argv)
 	XDestroyIC(r.xic);
 	XCloseIM(r.xim);
 
-#ifdef USE_XFT
 	for (i = 0; i < 3; ++i)
 		XftColorFree(r.d, vinfo.visual, cmap, &r.xft_colors[i]);
 	XftFontClose(r.d, r.font);
 	XftDrawDestroy(r.xftdraw);
-#else
-	XFreeFontSet(r.d, r.font);
-#endif
 
 	free(r.ps1);
 	free(fontname);
