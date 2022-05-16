@@ -19,16 +19,12 @@
 
 #include <X11/extensions/Xinerama.h>
 
-#ifndef VERSION
-#define VERSION "unknown"
-#endif
-
-#define resname "MyMenu"
-#define resclass "mymenu"
+#define RESNAME "MyMenu"
+#define RESCLASS "mymenu"
 
 #define SYM_BUF_SIZE 4
 
-#define default_fontname "monospace"
+#define DEFFONT "monospace"
 
 #define ARGS "Aahmve:p:P:l:f:W:H:x:y:b:B:t:T:c:C:s:S:d:G:g:I:i:J:j:"
 
@@ -37,8 +33,8 @@
 
 #define EXPANDBITS(x) (((x & 0xf0) * 0x100) | (x & 0x0f) * 0x10)
 
-#define inner_height(r) (r->height - r->borders[0] - r->borders[2])
-#define inner_width(r) (r->width - r->borders[1] - r->borders[3])
+#define INNER_HEIGHT(r) (r->height - r->borders[0] - r->borders[2])
+#define INNER_WIDTH(r) (r->width - r->borders[1] - r->borders[3])
 
 /* The states of the event loop */
 enum state { LOOPING, OK_LOOP, OK, ERR };
@@ -512,14 +508,14 @@ draw_v_box(struct rendering *r, int y, char *prefix, int prefix_width, enum obj_
 
 	ret = borders[0] + padding[0] + r->text_height + padding[2] + borders[2];
 
-	inner_width = inner_width(r) - borders[1] - borders[3];
+	inner_width = INNER_WIDTH(r) - borders[1] - borders[3];
 	inner_height = padding[0] + r->text_height + padding[2];
 
 	/* Border top */
 	XFillRectangle(r->d, r->w, border_color[0], r->x_zero, y, r->width, borders[0]);
 
 	/* Border right */
-	XFillRectangle(r->d, r->w, border_color[1], r->x_zero + inner_width(r) - borders[1], y,
+	XFillRectangle(r->d, r->w, border_color[1], r->x_zero + INNER_WIDTH(r) - borders[1], y,
 		borders[1], ret);
 
 	/* Border bottom */
@@ -576,7 +572,7 @@ draw_h_box(struct rendering *r, int x, char *prefix, int prefix_width, enum obj_
 
 	if (padding[0] < 0 || padding[2] < 0)
 		padding[0] = padding[2]
-			= (inner_height(r) - borders[0] - borders[2] - r->text_height) / 2;
+			= (INNER_HEIGHT(r) - borders[0] - borders[2] - r->text_height) / 2;
 
 	/* If they are still lesser than 0, set 'em to 0 */
 	if (padding[0] < 0 || padding[2] < 0)
@@ -590,21 +586,21 @@ draw_h_box(struct rendering *r, int x, char *prefix, int prefix_width, enum obj_
 	ret = borders[3] + padding[3] + text_width + padding[1] + borders[1];
 
 	inner_width = padding[3] + text_width + padding[1];
-	inner_height = inner_height(r) - borders[0] - borders[2];
+	inner_height = INNER_HEIGHT(r) - borders[0] - borders[2];
 
 	/* Border top */
 	XFillRectangle(r->d, r->w, border_color[0], x, r->y_zero, ret, borders[0]);
 
 	/* Border right */
 	XFillRectangle(r->d, r->w, border_color[1], x + borders[3] + inner_width, r->y_zero,
-		borders[1], inner_height(r));
+		borders[1], INNER_HEIGHT(r));
 
 	/* Border bottom */
-	XFillRectangle(r->d, r->w, border_color[2], x, r->y_zero + inner_height(r) - borders[2],
+	XFillRectangle(r->d, r->w, border_color[2], x, r->y_zero + INNER_HEIGHT(r) - borders[2],
 		ret, borders[2]);
 
 	/* Border left */
-	XFillRectangle(r->d, r->w, border_color[3], x, r->y_zero, borders[3], inner_height(r));
+	XFillRectangle(r->d, r->w, border_color[3], x, r->y_zero, borders[3], INNER_HEIGHT(r));
 
 	/* bg */
 	x += borders[3];
@@ -642,7 +638,7 @@ draw_horizontally(struct rendering *r, char *text, struct completions *cs)
 
 		x += draw_h_box(r, x, NULL, 0, t, cs->completions[i].completion);
 
-		if (x > inner_width(r))
+		if (x > INNER_WIDTH(r))
 			break;
 	}
 
@@ -672,7 +668,7 @@ draw_vertically(struct rendering *r, char *text, struct completions *cs)
 
 		y += draw_v_box(r, y, NULL, 0, t, cs->completions[i].completion);
 
-		if (y > inner_height(r))
+		if (y > INNER_HEIGHT(r))
 			break;
 	}
 
@@ -685,7 +681,7 @@ draw(struct rendering *r, char *text, struct completions *cs)
 {
 	/* Draw the background */
 	XFillRectangle(
-		r->d, r->w, r->bgs[1], r->x_zero, r->y_zero, inner_width(r), inner_height(r));
+		r->d, r->w, r->bgs[1], r->x_zero, r->y_zero, INNER_WIDTH(r), INNER_HEIGHT(r));
 
 	/* Draw the contents */
 	if (r->horizontal_layout)
@@ -740,8 +736,8 @@ set_win_atoms_hints(Display *d, Window w, int width, int height)
 		exit(EX_UNAVAILABLE);
 	}
 
-	class_hint->res_name = resname;
-	class_hint->res_class = resclass;
+	class_hint->res_name = RESNAME;
+	class_hint->res_class = RESCLASS;
 	XSetClassHint(d, w, class_hint);
 	XFree(class_hint);
 
@@ -1334,7 +1330,7 @@ xim_init(struct rendering *r, XrmDatabase *xdb)
 	int i;
 
 	/* Open the X input method */
-	if ((r->xim = XOpenIM(r->d, *xdb, resname, resclass)) == NULL)
+	if ((r->xim = XOpenIM(r->d, *xdb, RESNAME, RESCLASS)) == NULL)
 		err(1, "XOpenIM");
 
 	if (XGetIMValues(r->xim, XNQueryInputStyle, &xis, NULL) || !xis) {
@@ -1513,7 +1509,7 @@ main(int argc, char **argv)
 		err(1, "strdup");
 
 	/* same for the font name */
-	if ((fontname = strdup(default_fontname)) == NULL)
+	if ((fontname = strdup(DEFFONT)) == NULL)
 		err(1, "strdup");
 
 	textlen = 10;
