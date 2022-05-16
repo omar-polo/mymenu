@@ -37,14 +37,6 @@
 
 #define EXPANDBITS(x) (((x & 0xf0) * 0x100) | (x & 0x0f) * 0x10)
 
-/*
- * If we don't have or we don't want an "ignore case" completion
- * style, fall back to `strstr(3)`
- */
-#ifndef USE_STRCASESTR
-#define strcasestr strstr
-#endif
-
 #define inner_height(r) (r->height - r->borders[0] - r->borders[2])
 #define inner_width(r) (r->width - r->borders[1] - r->borders[3])
 
