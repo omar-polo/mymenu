@@ -1,44 +1,45 @@
-VERSION = 0.1
+.include <bsd.xconf.mk>
 
-# you may want to change these
-OPTIONAL = xinerama xft
-CDEFS    = -DUSE_XINERAMA -DUSE_XFT -DUSE_STRCASESTR
+PROG =	mymenu
 
-# you may not want to change these
-CC	 ?= cc
-LIBS	 = `pkg-config --libs x11 $(OPTIONAL)`
-OPTIM    = -O3
-CFLAGS 	 = $(CDEFS) -DVERSION=\"$(VERSION)\" `pkg-config --cflags x11 $(OPTIONAL)`
+.include "mymenu-version.mk"
 
-.PHONY: all clean install debug no_xft no_xinerama no_xft_xinerama gnu manpage
+CPPFLAGS +=	-I${X11BASE}/include -I${X11BASE}/include/freetype2 -DVERSION=\"${MYMENU_VERSION}\"
+LDADD =		-L${X11BASE}/lib -lX11 -lXinerama -lXft
 
-all: mymenu
+.if "${MYMENU_RELEASE}" == "Yes"
+PREFIX ?= /usr/local
+BINDIR ?= ${PREFIX}/bin
+MANDIR ?= ${PREFIX}/man/man
+.else
+NOMAN = Yes
+CFLAGS += -Werror -Wall -Wstrict-prototypes -Wunused-variable
+PREFIX ?= ${HOME}
+BINDIR ?= ${PREFIX}/bin
+BINOWN = ${USER}
+BINGRP != id -g -n
+DEBUG = -O0 -g
+.endif
 
-mymenu: mymenu.c
-	$(CC) $(CFLAGS) mymenu.c -o mymenu $(LIBS) $(OPTIM)
+release: clean
+	sed -i -e 's/_RELEASE=No/_RELEASE=Yes/' mymenu-version.mk
+	${MAKE} dist
+	sed -i -e 's/_RELEASE=Yes/_RELEASE=No/' mymenu-version.mk
 
-manpage: mymenu.1.md
+dist: clean
+	find . -type -d -name obj -delete
+	mkdir /tmp/mymenu-${MYMENU_VERSION}
+	pax -rw * /tmp/mymenu-${MYMENU_VERSION}
+	rm /tmp/mymenu-${MYMENU_VERSION}/mymenu-dist.txt
+	tar -C /tmp -zcf mymenu-${MYMENU_VERSION}.tar.gz mymenu-${MYMENU_VERSION}
+	rm -rf /tmp/mymenu-${MYMENU_VERSION}
+	tar -ztf mymenu-${MYMENU_VERSION}.tar.gz |
+		sed -e 's/^mymenu-${MYMENU_VERSION}//' |
+		sort > mymenu-dist.txt.new
+	diff -u mymenu-dist.txt{,.new}
+	rm mymenu-dist.txt.new
 
 mymenu.1.md: mymenu.1
 	mandoc -T markdown mymenu.1 > mymenu.1.md
 
-gnu: mymenu.c
-	make CDEFS="-D_GNU_SOURCE $(CDEFS)"
-
-debug:
-	make OPTIM="-g -O0 -Wall"
-
-no_xft: mymenu.c
-	make OPTIONAL="xinerama" CDEFS="-DUSE_XINERAMA -DUSE_STRCASESTR"
-
-no_xinerama: mymenu.c
-	make OPTIONAL="xft" CDEFS="-DUSE_XFT -DUSE_STRCASESTR"
-
-no_xft_xinerama: mymenu.c
-	make OPTIONAL="" CDEFS="-DUSE_STRCASESTR"
-
-clean:
-	rm -f mymenu
-
-install: mymenu
-	cp mymenu ~/bin
+.include <bsd.prog.mk>
