@@ -1547,12 +1547,6 @@ main(int argc, char **argv)
 	char **lines, *buf, **vlines;
 	char *fontname, *text, *xrm;
 
-#ifdef __OpenBSD__
-	/* stdio & rpath: to read/write stdio/stdout/stderr */
-	/* unix:          to connect to XOrg */
-	pledge("stdio rpath unix", "");
-#endif
-
 	sep = NULL;
 	parent_window_id = NULL;
 
