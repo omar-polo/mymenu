@@ -54,12 +54,6 @@
 #define strcasestr strstr
 #endif
 
-/* The number of char to read */
-#define STDIN_CHUNKS 128
-
-/* The number of lines to allocate in advance */
-#define LINES_CHUNK 64
-
 #define inner_height(r) (r->height - r->borders[0] - r->borders[2])
 #define inner_width(r) (r->width - r->borders[1] - r->borders[3])
 
@@ -417,91 +411,40 @@ normalize_str(const char *str)
 	return s;
 }
 
-size_t
-read_stdin(char **buf)
+char **
+readlines(size_t *lineslen)
 {
-	size_t offset = 0;
-	size_t len = STDIN_CHUNKS;
+	size_t len = 0, cap = 0;
+	size_t linesize = 0;
+	ssize_t linelen;
+	char *line = NULL, **lines = NULL;
 
-	*buf = malloc(len * sizeof(char));
-	if (*buf == NULL)
-		goto err;
+	while ((linelen = getline(&line, &linesize, stdin)) != -1) {
+		if (linelen != 0 && line[linelen-1] == '\n')
+			line[linelen-1] = '\0';
 
-	while (1) {
-		ssize_t r;
-		size_t i;
+		if (len == cap) {
+			size_t newcap;
+			void *t;
 
-		r = read(0, *buf + offset, STDIN_CHUNKS);
-
-		if (r < 1)
-			return len;
-
-		offset += r;
-
-		len += STDIN_CHUNKS;
-		*buf = realloc(*buf, len);
-		if (*buf == NULL)
-			goto err;
-
-		for (i = offset; i < len; ++i)
-			(*buf)[i] = '\0';
-	}
-
-err:
-	fprintf(stderr, "Error in allocating memory for stdin.\n");
-	exit(EX_UNAVAILABLE);
-}
-
-size_t
-readlines(char ***lns, char **buf)
-{
-	size_t i, len, ll, lines;
-	short in_line = 0;
-
-	lines = 0;
-
-	*buf = NULL;
-	len = read_stdin(buf);
-
-	ll = LINES_CHUNK;
-	*lns = malloc(ll * sizeof(char *));
-
-	if (*lns == NULL)
-		goto err;
-
-	for (i = 0; i < len; i++) {
-		char c = (*buf)[i];
-
-		if (c == '\0')
-			break;
-
-		if (c == '\n')
-			(*buf)[i] = '\0';
-
-		if (in_line && c == '\n')
-			in_line = 0;
-
-		if (!in_line && c != '\n') {
-			in_line = 1;
-			(*lns)[lines] = (*buf) + i;
-			lines++;
-
-			if (lines == ll) { /* resize */
-				ll += LINES_CHUNK;
-				*lns = realloc(*lns, ll * sizeof(char *));
-				if (*lns == NULL)
-					goto err;
-			}
+			newcap = MAX(cap * 1.5, 32);
+			t = recallocarray(lines, cap, newcap, sizeof(char *));
+			if (t == NULL)
+				err(1, "recallocarray");
+			cap = newcap;
+			lines = t;
 		}
+
+		if ((lines[len++] = strdup(line)) == NULL)
+			err(1, "strdup");
 	}
 
-	(*lns)[lines] = NULL;
+	if (ferror(stdin))
+		err(1, "getline");
+	free(line);
 
+	*lineslen = len;
 	return lines;
-
-err:
-	fprintf(stderr, "Error in memory allocation.\n");
-	exit(EX_UNAVAILABLE);
 }
 
 /*
@@ -1544,7 +1487,7 @@ main(int argc, char **argv)
 	int textlen, d_width, d_height;
 	short embed;
 	char *sep, *parent_window_id;
-	char **lines, *buf, **vlines;
+	char **lines, **vlines;
 	char *fontname, *text, *xrm;
 
 	sep = NULL;
@@ -1582,10 +1525,7 @@ main(int argc, char **argv)
 		}
 	}
 
-	/* Read the completions */
-	lines = NULL;
-	buf = NULL;
-	nlines = readlines(&lines, &buf);
+	lines = readlines(&nlines);
 
 	vlines = NULL;
 	if (sep != NULL) {
@@ -2231,7 +2171,6 @@ main(int argc, char **argv)
 	free(fontname);
 	free(text);
 
-	free(buf);
 	free(lines);
 	free(vlines);
 	compls_delete(cs);
