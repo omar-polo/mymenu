@@ -2115,8 +2115,8 @@ main(int argc, char **argv)
 	xim_init(&r, &xdb);
 
 #ifdef __OpenBSD__
-	/* Now we need only the ability to write */
-	pledge("stdio", "");
+	if (pledge("stdio", "") == -1)
+		err(1, "pledge");
 #endif
 
 	/* Cache text height */
