@@ -158,9 +158,6 @@ typedef union {
 	uint32_t v;
 } rgba_t;
 
-extern char *optarg;
-extern int optind;
-
 /* Return a newly allocated (and empty) completion list */
 struct completions *
 compls_new(size_t length)
@@ -1370,7 +1367,7 @@ loop(struct rendering *r, char **text, int *textlen, struct completions *cs,
 			case DEL_LINE: {
 				int i;
 				for (i = 0; i < *textlen; ++i)
-					*(*text + i) = 0;
+					(*text)[i] = 0;
 				update_completions(cs, *text, lines, vlines,
 				    r->first_selected);
 				r->offset = 0;
