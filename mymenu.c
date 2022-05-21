@@ -919,20 +919,20 @@ parse_color(const char *str, const char *def)
 	char *ep;
 
 	if (str == NULL)
-		goto invc;
+		goto err;
 
 	len = strlen(str);
 
 	/* +1 for the # ath the start */
 	if (*str != '#' || len > 9 || len < 4)
-		goto invc;
+		goto err;
 	++str; /* skip the # */
 
 	errno = 0;
 	tmp = (rgba_t)(uint32_t)strtoul(str, &ep, 16);
 
 	if (errno)
-		goto invc;
+		goto err;
 
 	switch (len - 1) {
 	case 3:
@@ -955,7 +955,7 @@ parse_color(const char *str, const char *def)
 
 	return 0U;
 
-invc:
+err:
 	fprintf(stderr, "Invalid color: \"%s\".\n", str);
 	if (def != NULL)
 		return parse_color(def, NULL);
