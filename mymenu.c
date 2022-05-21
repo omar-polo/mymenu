@@ -460,10 +460,9 @@ draw_string(char *str, int len, int x, int y, struct rendering *r, enum obj_type
 char *
 strdupn(char *str)
 {
-	int len, i;
 	char *t, *dup;
 
-	if (str == NULL || len == 0)
+	if (str == NULL || *str == '\0')
 		return NULL;
 
 	if ((dup = strdup(str)) == NULL)
