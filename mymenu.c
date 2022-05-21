@@ -809,6 +809,54 @@ get_wh(Display *d, Window *w, int *width, int *height)
 	*width = win_attr.width;
 }
 
+/* find the current xinerama monitor if possible */
+void
+findmonitor(Display *d, int *x, int *y, int *width, int *height)
+{
+	XineramaScreenInfo *info;
+	Window rr;
+	Window root;
+	int screens, monitors, i;
+	int rootx, rooty, winx, winy;
+	unsigned int mask;
+	short res;
+
+	if (!XineramaIsActive(d))
+		return;
+
+	screens = XScreenCount(d);
+	for (i = 0; i < screens; ++i) {
+		root = XRootWindow(d, i);
+		res = XQueryPointer(d, root, &rr, &rr, &rootx, &rooty, &winx,
+		    &winy, &mask);
+		if (res)
+			break;
+	}
+
+	if (!res)
+		return;
+
+	/* Now find in which monitor the mice is */
+	info = XineramaQueryScreens(d, &monitors);
+	if (info == NULL)
+		return;
+
+	for (i = 0; i < monitors; ++i) {
+		if (info[i].x_org <= rootx &&
+		    rootx <= (info[i].x_org + info[i].width) &&
+		    info[i].y_org <= rooty &&
+		    rooty <= (info[i].y_org + info[i].height)) {
+			*x = info[i].x_org;
+			*y = info[i].y_org;
+			*width = info[i].width;
+			*height = info[i].height;
+			break;
+		}
+	}
+
+	XFree(info);
+}
+
 int
 grabfocus(Display *d, Window w)
 {
@@ -1602,48 +1650,8 @@ main(int argc, char **argv)
 	/* get display size */
 	get_wh(r.d, &parent_window, &d_width, &d_height);
 
-	if (!embed && XineramaIsActive(r.d)) { /* find the mice */
-		XineramaScreenInfo *info;
-		Window rr;
-		Window root;
-		int number_of_screens, monitors, i;
-		int root_x, root_y, win_x, win_y;
-		unsigned int mask;
-		short res;
-
-		number_of_screens = XScreenCount(r.d);
-		for (i = 0; i < number_of_screens; ++i) {
-			root = XRootWindow(r.d, i);
-			res = XQueryPointer(
-				r.d, root, &rr, &rr, &root_x, &root_y, &win_x, &win_y, &mask);
-			if (res)
-				break;
-		}
-
-		if (!res) {
-			fprintf(stderr, "No mouse found.\n");
-			root_x = 0;
-			root_y = 0;
-		}
-
-		/* Now find in which monitor the mice is */
-		info = XineramaQueryScreens(r.d, &monitors);
-		if (info) {
-			for (i = 0; i < monitors; ++i) {
-				if (info[i].x_org <= root_x
-					&& root_x <= (info[i].x_org + info[i].width)
-					&& info[i].y_org <= root_y
-					&& root_y <= (info[i].y_org + info[i].height)) {
-					offset_x = info[i].x_org;
-					offset_y = info[i].y_org;
-					d_width = info[i].width;
-					d_height = info[i].height;
-					break;
-				}
-			}
-		}
-		XFree(info);
-	}
+	if (!embed)
+		findmonitor(r.d, &offset_x, &offset_y, &d_width, &d_height);
 
 	XMatchVisualInfo(r.d, DefaultScreen(r.d), 32, TrueColor, &vinfo);
 	cmap = XCreateColormap(r.d, XDefaultRootWindow(r.d), vinfo.visual,
