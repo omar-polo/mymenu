@@ -1538,22 +1538,51 @@ main(int argc, char **argv)
 	unsigned long fgs[3], bgs[3]; /* prompt, compl, compl_highlighted */
 	unsigned long borders_bg[4], p_borders_bg[4], c_borders_bg[4],
 		ch_borders_bg[4]; /* N E S W */
-	enum state status;
+	enum state status = LOOPING;
 	int ch;
-	int offset_x, offset_y, x, y;
+	int offset_x = 0, offset_y = 0;
+	int x = 0, y = 0;
 	int textlen, d_width, d_height;
 	short embed;
-	char *sep, *parent_window_id;
+	const char *sep = NULL;
+	const char *parent_window_id = NULL;
 	char **lines, **vlines;
 	char *fontname, *text, *xrm;
 
-	sep = NULL;
-	parent_window_id = NULL;
+	setlocale(LC_ALL, getenv("LANG"));
+
+	for (i = 0; i < 4; ++i) {
+		/* default paddings */
+		r.p_padding[i] = 10;
+		r.c_padding[i] = 10;
+		r.ch_padding[i] = 10;
+
+		/* default borders */
+		r.borders[i] = 0;
+		r.p_borders[i] = 0;
+		r.c_borders[i] = 0;
+		r.ch_borders[i] = 0;
+	}
 
 	r.first_selected = 0;
 	r.free_text = 1;
 	r.multiple_select = 0;
 	r.offset = 0;
+
+	/* default width and height */
+	r.width = 400;
+	r.height = 20;
+
+	/*
+	 * The prompt. We duplicate the string so later is easy to
+	 * free (in the case it's been overwritten by the user)
+	 */
+	if ((r.ps1 = strdup("$ ")) == NULL)
+		err(1, "strdup");
+
+	/* same for the font name */
+	if ((fontname = strdup(DEFFONT)) == NULL)
+		err(1, "strdup");
 
 	while ((ch = getopt(argc, argv, ARGS)) != -1) {
 		switch (ch) {
@@ -1600,44 +1629,6 @@ main(int argc, char **argv)
 				vlines[i] = t + l;
 		}
 	}
-
-	setlocale(LC_ALL, getenv("LANG"));
-
-	status = LOOPING;
-
-	/* where the monitor start (used only with xinerama) */
-	offset_x = offset_y = 0;
-
-	/* default width and height */
-	r.width = 400;
-	r.height = 20;
-
-	/* default position on the screen */
-	x = y = 0;
-
-	for (i = 0; i < 4; ++i) {
-		/* default paddings */
-		r.p_padding[i] = 10;
-		r.c_padding[i] = 10;
-		r.ch_padding[i] = 10;
-
-		/* default borders */
-		r.borders[i] = 0;
-		r.p_borders[i] = 0;
-		r.c_borders[i] = 0;
-		r.ch_borders[i] = 0;
-	}
-
-	/*
-	 * The prompt. We duplicate the string so later is easy to
-	 * free (in the case it's been overwritten by the user)
-	 */
-	if ((r.ps1 = strdup("$ ")) == NULL)
-		err(1, "strdup");
-
-	/* same for the font name */
-	if ((fontname = strdup(DEFFONT)) == NULL)
-		err(1, "strdup");
 
 	textlen = 10;
 	if ((text = malloc(textlen * sizeof(char))) == NULL)
