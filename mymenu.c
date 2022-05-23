@@ -1268,7 +1268,10 @@ enum state
 loop(struct rendering *r, char **text, int *textlen, struct completions *cs,
     char **lines, char **vlines)
 {
+	enum action a;
+	char *input = NULL;
 	enum state status = LOOPING;
+	int i;
 
 	while (status == LOOPING) {
 		XEvent e;
@@ -1299,10 +1302,7 @@ loop(struct rendering *r, char **text, int *textlen, struct completions *cs,
 			break;
 
 		case KeyPress:
-		case ButtonPress: {
-			enum action a;
-			char *input = NULL;
-
+		case ButtonPress:
 			if (e.type == KeyPress)
 				a = parse_event(r->d, (XKeyPressedEvent *)&e,
 				    r->xic, &input);
@@ -1318,31 +1318,27 @@ loop(struct rendering *r, char **text, int *textlen, struct completions *cs,
 				status = ERR;
 				break;
 
-			case CONFIRM: {
+			case CONFIRM:
 				status = OK;
 				confirm(&status, r, cs, text, textlen);
 				break;
-			}
 
-			case CONFIRM_CONTINUE: {
+			case CONFIRM_CONTINUE:
 				status = OK_LOOP;
 				confirm(&status, r, cs, text, textlen);
 				break;
-			}
 
-			case PREV_COMPL: {
+			case PREV_COMPL:
 				complete(cs, r->first_selected, 1, text,
 				    textlen, &status);
 				r->offset = cs->selected;
 				break;
-			}
 
-			case NEXT_COMPL: {
+			case NEXT_COMPL:
 				complete(cs, r->first_selected, 0, text,
 				    textlen, &status);
 				r->offset = cs->selected;
 				break;
-			}
 
 			case DEL_CHAR:
 				popc(*text);
@@ -1351,25 +1347,22 @@ loop(struct rendering *r, char **text, int *textlen, struct completions *cs,
 				r->offset = 0;
 				break;
 
-			case DEL_WORD: {
+			case DEL_WORD:
 				popw(*text);
 				update_completions(cs, *text, lines, vlines,
 				    r->first_selected);
 				break;
-			}
 
-			case DEL_LINE: {
-				int i;
+			case DEL_LINE:
 				for (i = 0; i < *textlen; ++i)
 					(*text)[i] = 0;
 				update_completions(cs, *text, lines, vlines,
 				    r->first_selected);
 				r->offset = 0;
 				break;
-			}
 
 			case ADD_CHAR: {
-				int str_len, i;
+				int str_len;
 
 				str_len = strlen(input);
 
@@ -1420,7 +1413,6 @@ loop(struct rendering *r, char **text, int *textlen, struct completions *cs,
 				r->offset = MAX((ssize_t)r->offset - 1, 0);
 				break;
 			}
-		}
 		}
 
 		draw(r, *text, cs);
