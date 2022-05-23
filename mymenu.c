@@ -1054,22 +1054,18 @@ parse_int_with_pos(Display *d, const char *str, int default_value, int max,
 
 /* Parse a string like a CSS value. */
 /* TODO: harden a bit this function */
-char **
-parse_csslike(const char *str)
+int
+parse_csslike(const char *str, char **ret)
 {
 	int i, j;
-	char *s, *token, **ret;
+	char *s, *token;
 	short any_null;
+
+	memset(ret, 0, 4 * sizeof(*ret));
 
 	s = strdup(str);
 	if (s == NULL)
-		return NULL;
-
-	ret = malloc(4 * sizeof(char *));
-	if (ret == NULL) {
-		free(s);
-		return NULL;
-	}
+		return -1;
 
 	for (i = 0; (token = strsep(&s, " ")) != NULL && i < 4; ++i)
 		ret[i] = strdup(token);
@@ -1097,16 +1093,14 @@ parse_csslike(const char *str)
 
 	if (any_null)
 		for (i = 0; i < 4; ++i)
-			if (ret[i] != NULL)
-				free(ret[i]);
+			free(ret[i]);
 
 	if (i == 0 || any_null) {
 		free(s);
-		free(ret);
-		return NULL;
+		return -1;
 	}
 
-	return ret;
+	return 1;
 }
 
 /*
@@ -1546,6 +1540,7 @@ main(int argc, char **argv)
 	short embed;
 	const char *sep = NULL;
 	const char *parent_window_id = NULL;
+	char *tmp[4];
 	char **lines, **vlines;
 	char *fontname, *text, *xrm;
 
@@ -1713,39 +1708,32 @@ main(int argc, char **argv)
 		}
 
 		if (XrmGetResource(xdb, "MyMenu.prompt.border.size", "*", datatype, &value)) {
-			char **sizes;
-			sizes = parse_csslike(value.addr);
-			if (sizes != NULL)
-				for (i = 0; i < 4; ++i)
-					r.p_borders[i] = parse_integer(sizes[i], 0);
-			else
-				fprintf(stderr,
-					"error while parsing "
-					"MyMenu.prompt.border.size");
+			if (parse_csslike(value.addr, tmp) == -1)
+				err(1, "parse_csslike");
+			for (i = 0; i < 4; ++i) {
+				r.p_borders[i] = parse_integer(tmp[i], 0);
+				free(tmp[i]);
+			}
 		}
 
 		if (XrmGetResource(xdb, "MyMenu.prompt.border.color", "*", datatype, &value)) {
-			char **colors;
-			colors = parse_csslike(value.addr);
-			if (colors != NULL)
-				for (i = 0; i < 4; ++i)
-					p_borders_bg[i] = parse_color(colors[i], "#000");
-			else
-				fprintf(stderr,
-					"error while parsing "
-					"MyMenu.prompt.border.color");
+			if (parse_csslike(value.addr, tmp) == -1)
+				err(1, "parse_csslike");
+
+			for (i = 0; i < 4; ++i) {
+				p_borders_bg[i] = parse_color(tmp[i], "#000");
+				free(tmp[i]);
+			}
 		}
 
 		if (XrmGetResource(xdb, "MyMenu.prompt.padding", "*", datatype, &value)) {
-			char **colors;
-			colors = parse_csslike(value.addr);
-			if (colors != NULL)
-				for (i = 0; i < 4; ++i)
-					r.p_padding[i] = parse_integer(colors[i], 0);
-			else
-				fprintf(stderr,
-					"error while parsing "
-					"MyMenu.prompt.padding");
+			if (parse_csslike(value.addr, tmp) == -1)
+				err(1, "parse_csslike");
+
+			for (i = 0; i < 4; ++i) {
+				r.p_padding[i] = parse_integer(tmp[i], 0);
+				free(tmp[i]);
+			}
 		}
 
 		if (XrmGetResource(xdb, "MyMenu.width", "*", datatype, &value))
@@ -1765,16 +1753,14 @@ main(int argc, char **argv)
 			y = parse_int_with_pos(r.d, value.addr, y, d_height, r.height);
 
 		if (XrmGetResource(xdb, "MyMenu.border.size", "*", datatype, &value)) {
-			char **borders;
-			borders = parse_csslike(value.addr);
-			if (borders != NULL)
-				for (i = 0; i < 4; ++i)
-					r.borders[i] = parse_int_with_percentage(
-						borders[i], 0, (i % 2) == 0 ? d_height : d_width);
-			else
-				fprintf(stderr,
-					"error while parsing "
-					"MyMenu.border.size\n");
+			if (parse_csslike(value.addr, tmp) == -1)
+				err(1, "parse_csslike");
+
+			for (i = 0; i < 4; ++i) {
+				r.borders[i] = parse_int_with_percentage(tmp[i], 0,
+				    (i % 2) == 0 ? d_height : d_width);
+				free(tmp[i]);
+			}
 		}
 
 		/* Prompt */
@@ -1792,39 +1778,33 @@ main(int argc, char **argv)
 			bgs[1] = parse_color(value.addr, "#000");
 
 		if (XrmGetResource(xdb, "MyMenu.completion.padding", "*", datatype, &value)) {
-			char **paddings;
-			paddings = parse_csslike(value.addr);
-			if (paddings != NULL)
-				for (i = 0; i < 4; ++i)
-					r.c_padding[i] = parse_integer(paddings[i], 0);
-			else
-				fprintf(stderr,
-					"Error while parsing "
-					"MyMenu.completion.padding");
+			if (parse_csslike(value.addr, tmp) == -1)
+				err(1, "parse_csslike");
+
+			for (i = 0; i < 4; ++i) {
+				r.c_padding[i] = parse_integer(tmp[i], 0);
+				free(tmp[i]);
+			}
 		}
 
 		if (XrmGetResource(xdb, "MyMenu.completion.border.size", "*", datatype, &value)) {
-			char **sizes;
-			sizes = parse_csslike(value.addr);
-			if (sizes != NULL)
-				for (i = 0; i < 4; ++i)
-					r.c_borders[i] = parse_integer(sizes[i], 0);
-			else
-				fprintf(stderr,
-					"Error while parsing "
-					"MyMenu.completion.border.size");
+			if (parse_csslike(value.addr, tmp) == -1)
+				err(1, "parse_csslike");
+
+			for (i = 0; i < 4; ++i) {
+				r.c_borders[i] = parse_integer(tmp[i], 0);
+				free(tmp[i]);
+			}
 		}
 
 		if (XrmGetResource(xdb, "MyMenu.completion.border.color", "*", datatype, &value)) {
-			char **sizes;
-			sizes = parse_csslike(value.addr);
-			if (sizes != NULL)
-				for (i = 0; i < 4; ++i)
-					c_borders_bg[i] = parse_color(sizes[i], "#000");
-			else
-				fprintf(stderr,
-					"Error while parsing "
-					"MyMenu.completion.border.color");
+			if (parse_csslike(value.addr, tmp) == -1)
+				err(1, "parse_csslike");
+
+			for (i = 0; i < 4; ++i) {
+				c_borders_bg[i] = parse_color(tmp[i], "#000");
+				free(tmp[i]);
+			}
 		}
 
 		/* Completion Highlighted */
@@ -1838,57 +1818,46 @@ main(int argc, char **argv)
 
 		if (XrmGetResource(
 			    xdb, "MyMenu.completion_highlighted.padding", "*", datatype, &value)) {
-			char **paddings;
-			paddings = parse_csslike(value.addr);
-			if (paddings != NULL)
-				for (i = 0; i < 4; ++i)
-					r.ch_padding[i] = parse_integer(paddings[i], 0);
-			else
-				fprintf(stderr,
-					"Error while parsing "
-					"MyMenu.completion_highlighted."
-					"padding");
+			if (parse_csslike(value.addr, tmp) == -1)
+				err(1, "parse_csslike");
+
+			for (i = 0; i < 4; ++i) {
+				r.ch_padding[i] = parse_integer(tmp[i], 0);
+				free(tmp[i]);
+			}
 		}
 
 		if (XrmGetResource(xdb, "MyMenu.completion_highlighted.border.size", "*", datatype,
-			    &value)) {
-			char **sizes;
-			sizes = parse_csslike(value.addr);
-			if (sizes != NULL)
-				for (i = 0; i < 4; ++i)
-					r.ch_borders[i] = parse_integer(sizes[i], 0);
-			else
-				fprintf(stderr,
-					"Error while parsing "
-					"MyMenu.completion_highlighted."
-					"border.size");
+		    &value)) {
+			if (parse_csslike(value.addr, tmp) == -1)
+				err(1, "parse_csslike");
+
+			for (i = 0; i < 4; ++i) {
+				r.ch_borders[i] = parse_integer(tmp[i], 0);
+				free(tmp[i]);
+			}
 		}
 
 		if (XrmGetResource(xdb, "MyMenu.completion_highlighted.border.color", "*", datatype,
 			    &value)) {
-			char **colors;
-			colors = parse_csslike(value.addr);
-			if (colors != NULL)
-				for (i = 0; i < 4; ++i)
-					ch_borders_bg[i] = parse_color(colors[i], "#000");
-			else
-				fprintf(stderr,
-					"Error while parsing "
-					"MyMenu.completion_highlighted."
-					"border.color");
+			if (parse_csslike(value.addr, tmp) == -1)
+				err(1, "parse_csslike");
+
+			for (i = 0; i < 4; ++i) {
+				ch_borders_bg[i] = parse_color(tmp[i], "#000");
+				free(tmp[i]);
+			}
 		}
 
 		/* Border */
 		if (XrmGetResource(xdb, "MyMenu.border.color", "*", datatype, &value)) {
-			char **colors;
-			colors = parse_csslike(value.addr);
-			if (colors != NULL)
-				for (i = 0; i < 4; ++i)
-					borders_bg[i] = parse_color(colors[i], "#000");
-			else
-				fprintf(stderr,
-					"error while parsing "
-					"MyMenu.border.color\n");
+			if (parse_csslike(value.addr, tmp) == -1)
+				err(1, "parse_csslike");
+
+			for (i = 0; i < 4; ++i) {
+				borders_bg[i] = parse_color(tmp[i], "#000");
+				free(tmp[i]);
+			}
 		}
 	}
 
@@ -1924,55 +1893,48 @@ main(int argc, char **argv)
 		case 'y':
 			y = parse_int_with_pos(r.d, optarg, y, d_height, r.height);
 			break;
-		case 'P': {
-			char **paddings;
-			if ((paddings = parse_csslike(optarg)) != NULL)
-				for (i = 0; i < 4; ++i)
-					r.p_padding[i] = parse_integer(paddings[i], 0);
+		case 'P':
+			if (parse_csslike(optarg, tmp) == -1)
+				err(1, "parse_csslike");
+			for (i = 0; i < 4; ++i)
+				r.p_padding[i] = parse_integer(tmp[i], 0);
 			break;
-		}
-		case 'G': {
-			char **colors;
-			if ((colors = parse_csslike(optarg)) != NULL)
-				for (i = 0; i < 4; ++i)
-					p_borders_bg[i] = parse_color(colors[i], "#000");
+		case 'G':
+			if (parse_csslike(optarg, tmp) == -1)
+				err(1, "parse_csslike");
+			for (i = 0; i < 4; ++i)
+				p_borders_bg[i] = parse_color(tmp[i], "#000");
 			break;
-		}
-		case 'g': {
-			char **sizes;
-			if ((sizes = parse_csslike(optarg)) != NULL)
-				for (i = 0; i < 4; ++i)
-					r.p_borders[i] = parse_integer(sizes[i], 0);
+		case 'g':
+			if (parse_csslike(optarg, tmp) == -1)
+				err(1, "parse_csslike");
+			for (i = 0; i < 4; ++i)
+				r.p_borders[i] = parse_integer(tmp[i], 0);
 			break;
-		}
-		case 'I': {
-			char **colors;
-			if ((colors = parse_csslike(optarg)) != NULL)
-				for (i = 0; i < 4; ++i)
-					c_borders_bg[i] = parse_color(colors[i], "#000");
+		case 'I':
+			if (parse_csslike(optarg, tmp) == -1)
+				err(1, "parse_csslike");
+			for (i = 0; i < 4; ++i)
+				c_borders_bg[i] = parse_color(tmp[i], "#000");
 			break;
-		}
-		case 'i': {
-			char **sizes;
-			if ((sizes = parse_csslike(optarg)) != NULL)
-				for (i = 0; i < 4; ++i)
-					r.c_borders[i] = parse_integer(sizes[i], 0);
+		case 'i':
+			if (parse_csslike(optarg, tmp) == -1)
+				err(1, "parse_csslike");
+			for (i = 0; i < 4; ++i)
+				r.c_borders[i] = parse_integer(tmp[i], 0);
 			break;
-		}
-		case 'J': {
-			char **colors;
-			if ((colors = parse_csslike(optarg)) != NULL)
-				for (i = 0; i < 4; ++i)
-					ch_borders_bg[i] = parse_color(colors[i], "#000");
+		case 'J':
+			if (parse_csslike(optarg, tmp) == -1)
+				err(1, "parse_csslike");
+			for (i = 0; i < 4; ++i)
+				ch_borders_bg[i] = parse_color(tmp[i], "#000");
 			break;
-		}
-		case 'j': {
-			char **sizes;
-			if ((sizes = parse_csslike(optarg)) != NULL)
-				for (i = 0; i < 4; ++i)
-					r.ch_borders[i] = parse_integer(sizes[i], 0);
+		case 'j':
+			if (parse_csslike(optarg, tmp) == -1)
+				err(1, "parse_csslike");
+			for (i = 0; i < 4; ++i)
+				r.ch_borders[i] = parse_integer(tmp[i], 0);
 			break;
-		}
 		case 'l':
 			r.horizontal_layout = !strcmp(optarg, "horizontal");
 			break;
@@ -1990,24 +1952,18 @@ main(int argc, char **argv)
 		case 'H':
 			r.height = parse_int_with_percentage(optarg, r.height, d_height);
 			break;
-		case 'b': {
-			char **borders;
-			if ((borders = parse_csslike(optarg)) != NULL) {
-				for (i = 0; i < 4; ++i)
-					r.borders[i] = parse_integer(borders[i], 0);
-			} else
-				fprintf(stderr, "Error parsing b option\n");
+		case 'b':
+			if (parse_csslike(optarg, tmp) == -1)
+				err(1, "parse_csslike");
+			for (i = 0; i < 4; ++i)
+				r.borders[i] = parse_integer(tmp[i], 0);
 			break;
-		}
-		case 'B': {
-			char **colors;
-			if ((colors = parse_csslike(optarg)) != NULL) {
-				for (i = 0; i < 4; ++i)
-					borders_bg[i] = parse_color(colors[i], "#000");
-			} else
-				fprintf(stderr, "error while parsing B option\n");
+		case 'B':
+			if (parse_csslike(optarg, tmp) == -1)
+				err(1, "parse_csslike");
+			for (i = 0; i < 4; ++i)
+				borders_bg[i] = parse_color(tmp[i], "#000");
 			break;
-		}
 		case 't':
 			fgs[0] = parse_color(optarg, NULL);
 			break;
