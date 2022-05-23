@@ -345,10 +345,9 @@ popc(char *p)
 void
 popw(char *w)
 {
-	int len;
 	short in_word = 1;
 
-	if ((len = strlen(w)) == 0)
+	if (*w == '\0')
 		return;
 
 	while (1) {
@@ -1361,21 +1360,17 @@ loop(struct rendering *r, char **text, int *textlen, struct completions *cs,
 				r->offset = 0;
 				break;
 
-			case ADD_CHAR: {
-				int str_len;
-
-				str_len = strlen(input);
-
+			case ADD_CHAR:
 				/*
 				 * sometimes a strange key is pressed
 				 * i.e. ctrl alone), so input will be
 				 * empty. Don't need to update
 				 * completion in that case
 				 */
-				if (str_len == 0)
+				if (*input == '\0')
 					break;
 
-				for (i = 0; i < str_len; ++i) {
+				for (i = 0; input[i] != '\0'; ++i) {
 					*textlen = pushc(text, *textlen,
 					    input[i]);
 					if (*textlen == -1) {
@@ -1395,7 +1390,6 @@ loop(struct rendering *r, char **text, int *textlen, struct completions *cs,
 
 				r->offset = 0;
 				break;
-			}
 
 			case TOGGLE_FIRST_SELECTED:
 				r->first_selected = !r->first_selected;
