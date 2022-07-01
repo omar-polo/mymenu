@@ -337,6 +337,7 @@ runtest __progname	__PROGNAME			  || true
 
 if [ "${HAVE_LIB_X11}" -eq 0 ]; then
 	echo "FATAL: libx11 not found" 1>&2
+	echo "make sure to have libx11, libxinerama and libxft installed" 1>&2
 	echo "FATAL: libx11 not found" 1>&3
 	exit 1
 fi
