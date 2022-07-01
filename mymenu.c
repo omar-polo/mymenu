@@ -161,7 +161,7 @@ typedef union {
 } rgba_t;
 
 /* Return a newly allocated (and empty) completion list */
-struct completions *
+static struct completions *
 compls_new(size_t length)
 {
 	struct completions *cs = malloc(sizeof(struct completions));
@@ -181,7 +181,7 @@ compls_new(size_t length)
 }
 
 /* Delete the wrapper and the whole list */
-void
+static void
 compls_delete(struct completions *cs)
 {
 	if (cs == NULL)
@@ -196,7 +196,7 @@ compls_delete(struct completions *cs)
  * completions (null terminated). Expects a non-null `cs'. `lines' and
  * `vlines' should have the same length OR `vlines' is NULL.
  */
-void
+static void
 filter(struct completions *cs, char *text, char **lines, char **vlines)
 {
 	size_t index = 0;
@@ -226,7 +226,7 @@ filter(struct completions *cs, char *text, char **lines, char **vlines)
 }
 
 /* Update the given completion */
-void
+static void
 update_completions(struct completions *cs, char *text, char **lines,
     char **vlines, short first_selected)
 {
@@ -241,7 +241,7 @@ update_completions(struct completions *cs, char *text, char **lines,
  * the new length. If the memory cannot be allocated `status' will be
  * set to `ERR'.
  */
-void
+static void
 complete(struct completions *cs, short first_selected, short p,
     char **text, int *textlen, enum state *status)
 {
@@ -289,7 +289,7 @@ complete(struct completions *cs, short first_selected, short p,
 }
 
 /* Push the character c at the end of the string pointed by p */
-int
+static int
 pushc(char **p, int maxlen, char c)
 {
 	int len;
@@ -315,7 +315,7 @@ pushc(char **p, int maxlen, char c)
  * from just setting the last byte to 0 (in some cases ofc). Return a
  * pointer (e) to the last nonzero char. If e < p then p is empty!
  */
-char *
+static char *
 popc(char *p)
 {
 	int len = strlen(p);
@@ -344,7 +344,7 @@ popc(char *p)
 }
 
 /* Remove the last word plus trailing white spaces from the given string */
-void
+static void
 popw(char *w)
 {
 	short in_word = 1;
@@ -370,7 +370,7 @@ popw(char *w)
  * If the string is surrounded by quates (`"') remove them and replace
  * every `\"' in the string with a single double-quote.
  */
-char *
+static char *
 normalize_str(const char *str)
 {
 	int len, p;
@@ -407,7 +407,7 @@ normalize_str(const char *str)
 	return s;
 }
 
-char **
+static char **
 readlines(size_t *lineslen)
 {
 	size_t len = 0, cap = 0;
@@ -447,7 +447,7 @@ readlines(size_t *lineslen)
  * Compute the dimensions of the string str once rendered.
  * It'll return the width and set ret_width and ret_height if not NULL
  */
-int
+static int
 text_extents(char *str, int len, struct rendering *r, int *ret_width,
     int *ret_height)
 {
@@ -464,7 +464,7 @@ text_extents(char *str, int len, struct rendering *r, int *ret_width,
 	return width;
 }
 
-void
+static void
 draw_string(char *str, int len, int x, int y, struct rendering *r,
     enum obj_type tt)
 {
@@ -480,7 +480,7 @@ draw_string(char *str, int len, int x, int y, struct rendering *r,
 }
 
 /* Duplicate the string and substitute every space with a 'n` */
-char *
+static char *
 strdupn(char *str)
 {
 	char *t, *dup;
@@ -499,7 +499,7 @@ strdupn(char *str)
 	return dup;
 }
 
-int
+static int
 draw_v_box(struct rendering *r, int y, char *prefix, int prefix_width,
     enum obj_type t, char *text)
 {
@@ -567,7 +567,7 @@ draw_v_box(struct rendering *r, int y, char *prefix, int prefix_width,
 	return ret;
 }
 
-int
+static int
 draw_h_box(struct rendering *r, int x, char *prefix, int prefix_width,
     enum obj_type t, char *text)
 {
@@ -658,7 +658,7 @@ draw_h_box(struct rendering *r, int x, char *prefix, int prefix_width,
  * | 20 char text     | completion | completion | completion | compl |
  *  `-----------------------------------------------------------------'
  */
-void
+static void
 draw_horizontally(struct rendering *r, char *text, struct completions *cs)
 {
 	size_t i;
@@ -697,7 +697,7 @@ draw_horizontally(struct rendering *r, char *text, struct completions *cs)
  * |  completion                                                     |
  * `-----------------------------------------------------------------'
  */
-void
+static void
 draw_vertically(struct rendering *r, char *text, struct completions *cs)
 {
 	size_t i;
@@ -726,7 +726,7 @@ draw_vertically(struct rendering *r, char *text, struct completions *cs)
 		cs->completions[i].offset = -1;
 }
 
-void
+static void
 draw(struct rendering *r, char *text, struct completions *cs)
 {
 	/* Draw the background */
@@ -762,7 +762,7 @@ draw(struct rendering *r, char *text, struct completions *cs)
 }
 
 /* Set some WM stuff */
-void
+static void
 set_win_atoms_hints(Display *d, Window w, int width, int height)
 {
 	Atom type;
@@ -813,7 +813,7 @@ set_win_atoms_hints(Display *d, Window w, int width, int height)
 }
 
 /* Get the width and height of the window `w' */
-void
+static void
 get_wh(Display *d, Window *w, int *width, int *height)
 {
 	XWindowAttributes win_attr;
@@ -824,7 +824,7 @@ get_wh(Display *d, Window *w, int *width, int *height)
 }
 
 /* find the current xinerama monitor if possible */
-void
+static void
 findmonitor(Display *d, int *x, int *y, int *width, int *height)
 {
 	XineramaScreenInfo *info;
@@ -871,7 +871,7 @@ findmonitor(Display *d, int *x, int *y, int *width, int *height)
 	XFree(info);
 }
 
-int
+static int
 grabfocus(Display *d, Window w)
 {
 	int i;
@@ -895,7 +895,7 @@ grabfocus(Display *d, Window w)
  * to actually grab that goddam keyboard. Only one call to
  * XGrabKeyboard does not always end up with the keyboard grabbed!
  */
-int
+static int
 take_keyboard(Display *d, Window w)
 {
 	int i;
@@ -909,7 +909,7 @@ take_keyboard(Display *d, Window w)
 	return 0;
 }
 
-unsigned long
+static unsigned long
 parse_color(const char *str, const char *def)
 {
 	size_t len;
@@ -964,7 +964,7 @@ err:
 /*
  * Given a string try to parse it as a number or return `def'.
  */
-int
+static int
 parse_integer(const char *str, int def)
 {
 	const char *errstr;
@@ -983,7 +983,7 @@ parse_integer(const char *str, int def)
  * Like parse_integer but recognize the percentages (i.e. strings
  * ending with `%')
  */
-int
+static int
 parse_int_with_percentage(const char *str, int default_value, int max)
 {
 	int len = strlen(str);
@@ -1004,7 +1004,7 @@ parse_int_with_percentage(const char *str, int default_value, int max)
 	return parse_integer(str, default_value);
 }
 
-void
+static void
 get_mouse_coords(Display *d, int *x, int *y)
 {
 	Window w, root;
@@ -1031,7 +1031,7 @@ get_mouse_coords(Display *d, int *x, int *y)
  * - mx     x coordinate of the mouse
  * - my     y coordinate of the mouse
  */
-int
+static int
 parse_int_with_pos(Display *d, const char *str, int default_value, int max,
     int self)
 {
@@ -1055,7 +1055,7 @@ parse_int_with_pos(Display *d, const char *str, int default_value, int max,
 
 /* Parse a string like a CSS value. */
 /* TODO: harden a bit this function */
-int
+static int
 parse_csslike(const char *str, char **ret)
 {
 	int i, j;
@@ -1109,7 +1109,7 @@ parse_csslike(const char *str, char **ret)
  * return value is ADD_CHAR then `input' is a pointer to a string that
  * will need to be free'ed later.
  */
-enum action
+static enum action
 parse_event(Display *d, XKeyPressedEvent *ev, XIC xic, char **input)
 {
 	char str[SYM_BUF_SIZE] = { 0 };
@@ -1165,7 +1165,7 @@ parse_event(Display *d, XKeyPressedEvent *ev, XIC xic, char **input)
 	return ADD_CHAR;
 }
 
-void
+static void
 confirm(enum state *status, struct rendering *r, struct completions *cs,
     char **text, int *textlen)
 {
@@ -1205,7 +1205,7 @@ confirm(enum state *status, struct rendering *r, struct completions *cs,
  * first: the first (rendered) item
  * def: the default action
  */
-enum action
+static enum action
 select_clicked(struct completions *cs, size_t offset, size_t first,
     enum action def)
 {
@@ -1236,7 +1236,7 @@ select_clicked(struct completions *cs, size_t offset, size_t first,
 	return def;
 }
 
-enum action
+static enum action
 handle_mouse(struct rendering *r, struct completions *cs,
     XButtonPressedEvent *e)
 {
@@ -1265,7 +1265,7 @@ handle_mouse(struct rendering *r, struct completions *cs,
 }
 
 /* event loop */
-enum state
+static enum state
 loop(struct rendering *r, char **text, int *textlen, struct completions *cs,
     char **lines, char **vlines)
 {
@@ -1417,14 +1417,14 @@ loop(struct rendering *r, char **text, int *textlen, struct completions *cs,
 	return status;
 }
 
-int
+static int
 load_font(struct rendering *r, const char *fontname)
 {
 	r->font = XftFontOpenName(r->d, DefaultScreen(r->d), fontname);
 	return 0;
 }
 
-void
+static void
 xim_init(struct rendering *r, XrmDatabase *xdb)
 {
 	XIMStyle best_match_style;
@@ -1460,7 +1460,7 @@ xim_init(struct rendering *r, XrmDatabase *xdb)
 		err(1, "XCreateIC");
 }
 
-void
+static void
 create_window(struct rendering *r, Window parent_window, Colormap cmap,
     XVisualInfo vinfo, int x, int y, int ox, int oy,
     unsigned long background_pixel)
@@ -1483,7 +1483,7 @@ create_window(struct rendering *r, Window parent_window, Colormap cmap,
 	    vinfo.depth, InputOutput, vinfo.visual, vmask, &attr);
 }
 
-void
+static void
 ps1extents(struct rendering *r)
 {
 	char *dup;
@@ -1492,7 +1492,7 @@ ps1extents(struct rendering *r)
 	free(dup);
 }
 
-void
+static void
 usage(char *prgname)
 {
 	fprintf(stderr,
