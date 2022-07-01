@@ -44,5 +44,10 @@ getprogname(void)
 	return (__progname);
 }
 #else
-#error No getprogname available.
+#warning No getprogname available; falling back to mymenu
+const char *
+getprogname(void)
+{
+	return ("mymenu");
+}
 #endif
