@@ -82,8 +82,8 @@ fi
 
 CC=`printf "all:\\n\\t@echo \\\$(CC)\\n" | make ${MAKE_FLAGS} -sf -`
 CFLAGS=`printf "all:\\n\\t@echo \\\$(CFLAGS)\\n" | make ${MAKE_FLAGS} -sf -`
-CFLAGS="${CFLAGS} -g -W -Wall -Wextra" # -Wmissing-prototypes -Wstrict-prototypes
-#CFLAGS="${CFLAGS} -Wwrite-strings -Wno-unused-parameter"
+CFLAGS="${CFLAGS} -g -W -Wall -Wextra -Wmissing-prototypes -Wstrict-prototypes"
+CFLAGS="${CFLAGS} -Wno-unused-parameter"
 LDADD=
 LDADD_LIB_SOCKET=
 LDADD_STATIC=
