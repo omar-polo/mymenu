@@ -95,7 +95,7 @@ struct rendering {
 		       the borders) */
 	int y_zero; /* like x_zero but for the y axis */
 
-	int offset; /* scroll offset */
+	size_t offset; /* scroll offset */
 
 	short free_text;
 	short first_selected;
@@ -139,7 +139,7 @@ struct completion {
 	 * The X (or Y, depending on the layour) at which the item is
 	 * rendered
 	 */
-	int offset;
+	ssize_t offset;
 };
 
 /* Wrap the linked list of completions */
@@ -1206,7 +1206,7 @@ confirm(enum state *status, struct rendering *r, struct completions *cs,
  * def: the default action
  */
 static enum action
-select_clicked(struct completions *cs, size_t offset, size_t first,
+select_clicked(struct completions *cs, ssize_t offset, size_t first,
     enum action def)
 {
 	ssize_t selected = first;
@@ -1219,7 +1219,7 @@ select_clicked(struct completions *cs, size_t offset, size_t first,
 		return EXIT;
 
 	/* skip the first entry */
-	for (selected += 1; selected < cs->length; ++selected) {
+	for (selected += 1; selected < (ssize_t)cs->length; ++selected) {
 		if (cs->completions[selected].offset == -1)
 			break;
 
