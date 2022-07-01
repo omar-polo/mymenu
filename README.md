@@ -33,35 +33,18 @@ out also the [template](Xexample) for the resources.
 ## Dependencies
 
  - Xlib
- - Xinerama *(optional)* for multi-monitor support
- - Xft *(optional)* for TrueType font support
- - pkg-config *(optional)* to generate `LIBS` and `CFLAGS`
+ - Xinerama for multi-monitor support
+ - Xft for TrueType font support
+ - pkg-config *(optional)* to aid the autoconfiguration
  - mandoc *(optional)* to generate the
    [markdown version of the manpage](mymenu.1.md)
 
 ## Build
 
-As simple as `make` (or `make gnu` if you're using GNU libc). Keep in
-mind that, by default, both Xft and Xinerama are enabled. So, you may
-want to run:
+The usual spell:
 
-  - `make no_xft` to build without xft support;
-  - `make no_xinerama` to build without xinerama support;
-  - `make no_xft_xinerama` to build without xinerama *and* no xft support.
-
-Or you can update the first lines of the `Makefile` customizing
-`OPTIONAL` and `CDEFS` to your needs.
-
-#### ignore case completion / don't have `strcasestr(3)`
-
-If you want to build without the ignore case completion or on your
-platform `strcasestr(3)` isn't available, you have to update the
-`Makefile` and remove `-DUSE_STRCASESTR`. A simple
-``` shell
-sed -i.orig 's/-DUSE_STRCASESTR//g' Makefile
-```
-should be enough.
-
+	$ ./configure
+	$ make
 
 ## FAQ
 
