@@ -95,13 +95,23 @@ You can generate a list of executables from `$PATH` like this:
 path=`echo $PATH | sed 's/:/ /g'`
 
 {
-    for i in $path; do
-        ls -F $i | sed -n 's/\*$//p'
-    done
-} | sort -f | /bin/sh -c "$(mymenu "$@")"
+	for p in $path; do
+		for f in "$p"/*; do
+			[ -x "$f" ] && echo "${f##*/}"
+		done
+	done
+} | sort -fu | /bin/sh -c "$(mymenu "$@")"
 ```
 
-You can, for example, select a song to play from the current queue (in mpd), with
+You can, for example, select a song to play from the current queue of [amused][amused]
+
+```shell
+if song=$(amused show | mymenu -p "Song: " -A); then
+	amused jump "$song"
+fi
+```
+
+The same, but with mpd:
 
 ```shell
 fmt="%position% %artist% - %title%"
@@ -112,3 +122,5 @@ fi
 
 Of course you can as well use the `dmenu_path` and `dmenu_run` scripts
 that (usually) comes with `dmenu`.
+
+[amused]: https://projects.omarpolo.com/amused.html
