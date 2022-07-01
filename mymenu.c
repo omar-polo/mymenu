@@ -14,6 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "config.h"
+
 #include <ctype.h> /* isalnum */
 #include <err.h>
 #include <errno.h>

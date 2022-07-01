@@ -1,45 +1,45 @@
-.include <bsd.xconf.mk>
+PROG =		mymenu
+SRCS =		mymenu.c
+OBJS =		${SRCS:.c=.o}
+COBJS =		${COBJ:.c=.o}
 
-PROG =	mymenu
+TESTSRCS =	test-__progname.c			\
+		test-capsicum.c				\
+		test-err.c				\
+		test-getexecname.c			\
+		test-getprogname.c			\
+		test-landlock.c				\
+		test-pledge.c				\
+		test-program_invocation_short_name.c	\
+		test-reallocarray.c			\
+		test-recallocarray.c			\
+		test-static.c				\
+		test-strtonum.c
 
-.include "mymenu-version.mk"
+all: ${PROG}
+.PHONY: clean distclean install uninstall
 
-CPPFLAGS +=	-I${X11BASE}/include -I${X11BASE}/include/freetype2 -DVERSION=\"${MYMENU_VERSION}\"
-LDADD =		-L${X11BASE}/lib -lX11 -lXinerama -lXft
+Makefile.configure config.h: configure ${TESTSRCS}
+	@echo "$@ is out of date; please run ./configure"
+	@exit 1
 
-.if "${MYMENU_RELEASE}" == "Yes"
-PREFIX ?= /usr/local
-BINDIR ?= ${PREFIX}/bin
-MANDIR ?= ${PREFIX}/man/man
-.else
-NOMAN = Yes
-CFLAGS += -Werror -Wall -Wstrict-prototypes -Wunused-variable
-PREFIX ?= ${HOME}
-BINDIR ?= ${PREFIX}/bin
-BINOWN = ${USER}
-BINGRP != id -g -n
-DEBUG = -O0 -g
-.endif
+include Makefile.configure
 
-release: clean
-	sed -i -e 's/_RELEASE=No/_RELEASE=Yes/' mymenu-version.mk
-	${MAKE} dist
-	sed -i -e 's/_RELEASE=Yes/_RELEASE=No/' mymenu-version.mk
+${PROG}: ${OBJS} ${COBJS}
+	${CC} -o $@ ${LDFLAGS} ${OBJS} ${COBJS} ${LDADD} ${LDADD_LIB_X11}
 
-dist: clean
-	find . -type -d -name obj -delete
-	mkdir /tmp/mymenu-${MYMENU_VERSION}
-	pax -rw * /tmp/mymenu-${MYMENU_VERSION}
-	rm /tmp/mymenu-${MYMENU_VERSION}/mymenu-dist.txt
-	tar -C /tmp -zcf mymenu-${MYMENU_VERSION}.tar.gz mymenu-${MYMENU_VERSION}
-	rm -rf /tmp/mymenu-${MYMENU_VERSION}
-	tar -ztf mymenu-${MYMENU_VERSION}.tar.gz |
-		sed -e 's/^mymenu-${MYMENU_VERSION}//' |
-		sort > mymenu-dist.txt.new
-	diff -u mymenu-dist.txt{,.new}
-	rm mymenu-dist.txt.new
+clean:
+	rm -f ${OBJS} ${COBS} ${PROG}
+
+install:
+	mkdir -p ${DESTDIR}${BINDIR}
+	mkdir -p ${DESTDIR}${MANDIR}/man1
+	${INSTALL_PROGRAM} ${PROG} ${DESTDIR}/${BINDIR}
+	${INSTALL_MAN} mymenu.1 ${DESTDIR}${MANDIR}/man1
+
+uninstall:
+	rm ${DESTDIR}${BINDIR}/${PROG}
+	rm ${DESTDIR}${MANDIR}/man1/mymenu.1
 
 mymenu.1.md: mymenu.1
 	mandoc -T markdown mymenu.1 > mymenu.1.md
-
-.include <bsd.prog.mk>
