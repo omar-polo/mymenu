@@ -27,6 +27,8 @@
  * SUCH DAMAGE.
  */
 
+#include "config.h"
+
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
