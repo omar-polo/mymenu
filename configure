@@ -127,14 +127,16 @@ command -v ${CC} 2>/dev/null 1>&2 || {
 	}
 }
 
-# Automatically set flags for x11 on OpenBSD
-case $(uname) in
-	OpenBSD)
-		CFLAGS="${CFLAGS} -I/usr/X11R6/include"
-		CFLAGS="${CFLAGS} -I/usr/X11R6/include/freetype2"
-		LDFLAGS="-L/usr/X11R6/lib"
-		;;
-esac
+command -v pkg-config 2>/dev/null 1>&2 && {
+	if extra="$(pkg-config --cflags x11 xinerama xft || true)"; then
+		echo "Adding to CFLAGS: $extra (pkg-config)"
+		CFLAGS="$extra ${CFLAGS}"
+	fi
+	if extra="$(pkg-config --libs x11 xinerama xft || true)"; then
+		echo "Adding to LDFLAGS: $extra (pkg-config)"
+		LDFLAGS="$extra ${LDFLAGS}"
+	fi
+}
 
 #----------------------------------------------------------------------
 # Allow certain variables to be overriden on the command line.
