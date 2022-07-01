@@ -94,16 +94,15 @@ You can generate a list of executables from `$PATH` like this:
 
 path=`echo $PATH | sed 's/:/ /g'`
 
-{
-	for p in $path; do
-		for f in "$p"/*; do
-			[ -x "$f" ] && echo "${f##*/}"
-		done
+for p in $path; do
+	for f in "$p"/*; do
+		[ -x "$f" ] && echo "${f##*/}"
 	done
-} | sort -fu | /bin/sh -c "$(mymenu "$@")"
+done | sort -fu | /bin/sh -c "$(mymenu "$@")"
 ```
 
-You can, for example, select a song to play from the current queue of [amused][amused]
+You can, for example, select a song to play from the current queue of
+[amused][amused]
 
 ```shell
 if song=$(amused show | mymenu -p "Song: " -A); then
@@ -116,7 +115,7 @@ The same, but with mpd:
 ```shell
 fmt="%position% %artist% - %title%"
 if song=$(mpc playlist -f "$fmt" | mymenu -p "Song: " -A -d " "); then
-    mpc play $(echo $song | sed "s/ .*$//")
+	mpc play $(echo $song | sed "s/ .*$//")
 fi
 ```
 
