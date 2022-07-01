@@ -26,7 +26,7 @@ Makefile.configure config.h: configure ${TESTSRCS}
 include Makefile.configure
 
 ${PROG}: ${OBJS} ${COBJS}
-	${CC} -o $@ ${LDFLAGS} ${OBJS} ${COBJS} ${LDADD} ${LDADD_LIB_X11}
+	${CC} -o $@ ${OBJS} ${COBJS} ${LDFLAGS} ${LDADD} ${LDADD_LIB_X11}
 
 clean:
 	rm -f ${OBJS} ${COBS} ${PROG}
