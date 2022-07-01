@@ -37,6 +37,10 @@ install:
 	${INSTALL_PROGRAM} ${PROG} ${DESTDIR}/${BINDIR}
 	${INSTALL_MAN} mymenu.1 ${DESTDIR}${MANDIR}/man1
 
+install-local:
+	mkdir -p ${HOME}/bin
+	${INSTALL_PROGRAM} ${PROG} ${HOME}/bin/
+
 uninstall:
 	rm ${DESTDIR}${BINDIR}/${PROG}
 	rm ${DESTDIR}${MANDIR}/man1/mymenu.1
