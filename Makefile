@@ -29,7 +29,7 @@ ${PROG}: ${OBJS} ${COBJS}
 	${CC} -o $@ ${OBJS} ${COBJS} ${LDFLAGS} ${LDADD} ${LDADD_LIB_X11}
 
 clean:
-	rm -f ${OBJS} ${COBS} ${PROG}
+	rm -f ${OBJS} ${COBJS} ${PROG}
 
 install:
 	mkdir -p ${DESTDIR}${BINDIR}
