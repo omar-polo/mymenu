@@ -36,7 +36,8 @@ TESTSRCS =	test-__progname.c			\
 		test-reallocarray.c			\
 		test-recallocarray.c			\
 		test-static.c				\
-		test-strtonum.c
+		test-strtonum.c				\
+		test-x11.c
 
 DISTFILES =	LICENSE					\
 		Makefile				\
