@@ -937,7 +937,7 @@ parse_color(const char *str, const char *def)
 		/* expand #rgb -> #rrggbb */
 		tmp.v = (tmp.v & 0xf00) * 0x1100 | (tmp.v & 0x0f0) * 0x0110
 			| (tmp.v & 0x00f) * 0x0011;
-		/* fallback */
+		/* fallthrough */
 	case 6:
 		/* assume 0xff opacity */
 		tmp.rgba.a = 0xff;
