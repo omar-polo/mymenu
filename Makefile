@@ -41,6 +41,7 @@ TESTSRCS =	test-__progname.c			\
 
 DISTFILES =	LICENSE					\
 		Makefile				\
+		NEWS					\
 		configure				\
 		configure.local.example			\
 		mymenu.1				\

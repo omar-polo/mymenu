@@ -1,0 +1,7 @@
+This file lists the most important changes in mymenu.
+
+Changes in version 0.2, released on July 2, 2022.
+
+  * switch to Kristaps' oconfigure
+  * many improvements to the code
+  * xinerama and xft are now mandatory
