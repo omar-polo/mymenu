@@ -128,6 +128,9 @@ command -v ${CC} 2>/dev/null 1>&2 || {
 }
 
 command -v pkg-config 2>/dev/null 1>&2 && {
+	echo "pkg-config: found" 1>&2
+	echo "pkg-config: found" 1>&3
+
 	if extra="$(pkg-config --cflags x11 xinerama xft || true)"; then
 		echo "Adding to CFLAGS: $extra (pkg-config)"
 		CFLAGS="$extra ${CFLAGS}"
@@ -136,6 +139,9 @@ command -v pkg-config 2>/dev/null 1>&2 && {
 		echo "Adding to LDFLAGS: $extra (pkg-config)"
 		LDFLAGS="$extra ${LDFLAGS}"
 	fi
+} || {
+	echo "pkg-config: not found" 1>&2
+	echo "pkg-config: not found" 1>&3
 }
 
 #----------------------------------------------------------------------
