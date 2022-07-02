@@ -533,6 +533,7 @@ exec > Makefile.configure
 [ -z "${INSTALL_DATA}"    ] && INSTALL_DATA="${INSTALL} -m 0444"
 
 cat << __HEREDOC__
+VERSION		 = ${MYMENU_VERSION}
 CC		 = ${CC}
 CFLAGS		 = ${CFLAGS}
 CPPFLAGS	 = ${CPPFLAGS}
